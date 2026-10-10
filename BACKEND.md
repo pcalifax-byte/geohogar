@@ -169,67 +169,46 @@ Páginas: `login.html` (iniciar sesión / crear cuenta / enlace mágico / olvid�
 ### Prueba gratis de 2 días (sin tarjeta)
 `planes.html`, el modal de mejora en el mapa y `cuenta.html` llaman `Auth.startTrial()` → RPC `start_trial()` (en `schema.sql`): es `SECURITY DEFINER`, solo funciona con sesión iniciada, solo una vez por cuenta (`trial_used`) y fija `trial_ends_at = now() + 2 días`. `is_plus()` / `has_plus()` devuelven verdadero si hay pago vigente **o** prueba vigente, así que las políticas RLS se aplican solas al vencer. El mapa muestra «⏳ X h Plus» en la barra superior, se recarga al vencer y muestra el aviso «Tu prueba terminó». En modo demo se guarda en `localStorage` (`gh_demo_trials`). No se crea la prueba en Tilopay (su `trial_days` exige registrar tarjeta); la prueba es 100 % de MapMarket.
 
-### Cobro con Tilopay (proveedor principal)
-Fuente: documentación pública https://tilopay.com/developers (páginas «Crear plan recurrente», «Suscriptores de un plan», «URL de registro y renovación», «Webhooks», «Autenticación», revisadas el 10 oct 2026; Tilopay las marca como verificadas el 28–29 ago 2026).
+### Cobro con ONVO Pay (proveedor principal)
+> Tilopay fue **reemplazado** por ONVO Pay (oct 2026). La sección anterior de Tilopay se retiró; el diseño (prueba gratis propia, Edge Function, verificación contra la API) se mantiene.
 
-**Lo que debes hacer en Tilopay**
-1. Crea la cuenta de comercio en tilopay.com y completa la afiliación (KYC, cuenta bancaria). Tilopay no tiene un host de pruebas aparte: usa sus credenciales/modo de prueba según te indiquen.
-2. En `admin.tilopay.com/admin/checkout` obtén `apiuser`, `password` y `key`. **Son secretos**: van solo en Supabase (`supabase secrets set`), nunca en `js/config.js` ni en el repo.
-3. Crea dos **planes recurrentes** (panel → Recurrentes, o `POST /api/v1/createPlanRepeat`): «MapMarket Plus mensual» `currency=USD`, `frecuency=3` (mensual), monto 7; «MapMarket Plus anual» `frecuency=4` (anual), monto 59. `trial=0` (la prueba la da MapMarket). Configura en ambos:
-   - `webhook_subscribe`, `webhook_payment`, `webhook_rejected`, `webhook_unsubscribe`, `webhook_reactive` → `https://<proyecto>.supabase.co/functions/v1/tilopay-webhook?t=<TILOPAY_WEBHOOK_TOKEN>`
-   - `thanks_url` (GET) → `https://pcalifax-byte.github.io/geohogar/cuenta.html?pago=ok`
-4. Copia la **URL de registro** de cada plan (panel, o `POST /api/v1/recurrentUrl` → `url_register`, con forma `https://app.tilopay.com/admin/recurrent/register/<ID>`) a `js/config.js` → `tilopay.mensualUrl` / `tilopay.anualUrl`. Los botones «Suscribirme» agregan `?email=<correo del usuario>` (parámetro que muestra la documentación de `recurrentUrl`). Tilopay no ofrece un campo de referencia propio en este flujo, así que **el usuario se identifica por su email**: pide usar el mismo correo de la cuenta MapMarket.
-5. Escribe a soporte de Tilopay (`soporte@tilopay.com` / `sac@tilopay.com`) para pedir el algoritmo de `orderHash` (verificación de origen; no es público) y, si usas `processPayment`, la especificación de su webhook.
+Fuente: https://docs.onvopay.com (Autenticación, Checkout · enlaces de un solo uso, Cargos recurrentes, Webhooks, Pruebas, `openapi.yaml`), revisado el 10 oct 2026.
 
-**Edge Function `tilopay-webhook`** — responde 200 de inmediato (Tilopay reintenta la recurrencia hasta 5 veces si recibe 400/403/404/502/504; las compras únicas no se reintentan) y **verifica contra el API** antes de dar Plus, porque la documentación advierte no tomar decisiones solo con el contenido del webhook:
-```ts
-// supabase/functions/tilopay-webhook/index.ts   (deploy: supabase functions deploy tilopay-webhook --no-verify-jwt)
-import { createClient } from "npm:@supabase/supabase-js@2";
-const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-const T = "https://app.tilopay.com/api/v1";
-const PLANES: Record<string, number> = { [Deno.env.get("TILOPAY_PLAN_MENSUAL")!]: 31, [Deno.env.get("TILOPAY_PLAN_ANUAL")!]: 366 };
+**Objetos creados en modo TEST** (con la llave `onvo_test_secret_key_…`, vía API):
+| Objeto | ID | Detalle |
+|---|---|---|
+| Producto | `cmv2wqot11z5sk1237kjvzwsk` | MapMarket Plus |
+| Precio mensual | `cmv2wqq6w20bik36vkrllfl8e` | CRC 399000 (₡3.990), recurring month ×1 |
+| Precio anual | `cmv2wqqz91za8k86v0ucnv13w` | CRC 2999000 (₡29.990), recurring year ×1 (ahorro ~37 %) |
+Los montos van en la unidad menor (céntimos). En producción hay que crear los mismos objetos con la llave live y poner los IDs en `ONVO_PRICE_MENSUAL` / `ONVO_PRICE_ANUAL` (secrets) y en `js/config.js`.
 
-async function token() {           // POST /api/v1/login → access_token (vigencia 24 h)
-  const r = await fetch(`${T}/login`, { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apiuser: Deno.env.get("TILOPAY_APIUSER"), password: Deno.env.get("TILOPAY_PASSWORD") }) });
-  return (await r.json()).access_token as string;
-}
-async function suscriptor(planId: string, email: string) {   // POST /api/v1/getSuscriptorRepeat
-  const r = await fetch(`${T}/getSuscriptorRepeat`, { method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `bearer ${await token()}` },
-    body: JSON.stringify({ key: Deno.env.get("TILOPAY_KEY"), id: planId }) });
-  const j = await r.json();
-  return (j.suscriptor ?? []).filter((s: any) => s.email?.toLowerCase() === email)
-    .sort((a: any, b: any) => (b.create > a.create ? 1 : -1))[0];
-}
-async function procesar(body: any) {
-  const email = String(body.email ?? "").toLowerCase(), planId = String(body.id_plan ?? "");
-  if (!email || !(planId in PLANES)) return;
-  const s = await suscriptor(planId, email);                       // fuente de verdad
-  const activo = s?.status === "Active";
-  const fin = s?.expire ? new Date(s.expire + "T23:59:59-06:00") : new Date(Date.now() + PLANES[planId] * 864e5);
-  await db.from("pagos_eventos").insert({ evento: body.evento, email, order_number: body.orderNumber ?? null, payload: body, verificado: !!s });
-  if (!s) return;
-  await db.from("profiles").update(activo ? { plan: "plus", plus_until: fin.toISOString(), tilopay_plan_id: planId }
-                                          : { plan: "gratis", plus_until: fin.toISOString() }).eq("email", email);
-}
-Deno.serve(async (req) => {
-  if (new URL(req.url).searchParams.get("t") !== Deno.env.get("TILOPAY_WEBHOOK_TOKEN")) return new Response("ok"); // ignora, sin reintentos
-  let body: any = {}; const txt = await req.text();
-  try { body = JSON.parse(txt); } catch { body = Object.fromEntries(new URLSearchParams(txt)); }
-  // @ts-ignore EdgeRuntime existe en Supabase: procesa después de responder 200
-  EdgeRuntime.waitUntil(procesar(body).catch(console.error));
-  return new Response("ok", { status: 200 });
-});
+**Flujo**
+1. `planes.html` → «Suscribirme» → `Auth.subscribe()` llama `supabase.functions.invoke('onvo-checkout', {periodo})` con el JWT del usuario.
+2. `supabase/functions/onvo-checkout` valida el usuario y crea `POST /v1/checkout/sessions/one-time-link` con `lineItems:[{priceId}]`, `customerEmail`, `redirectUrl = …/cuenta.html?pago=ok`, `cancelUrl = …/planes.html?pago=cancelado` y `metadata {supabase_user_id, email, plan, app:'mapmarket'}`; devuelve `url` (checkout.onvopay.com) y el navegador redirige. (Probado en modo test: la API acepta el precio recurrente y devuelve la URL; la sesión de prueba se expiró.)
+3. `supabase/functions/onvo-webhook` recibe `checkout-session.succeeded`, `subscription.renewal.succeeded`, `subscription.renewal.failed` y `payment-intent.*`:
+   - Verifica el header **`X-Webhook-Secret`** (comparación en tiempo constante) contra el secret `ONVO_WEBHOOK_SECRET` — es el mecanismo documentado por ONVO (no hay firma HMAC).
+   - Registra cada evento en `pagos_eventos` con `event_key` único (idempotencia).
+   - `checkout-session.succeeded`: vuelve a consultar `GET /v1/checkout/sessions/{id}`, exige `paymentStatus='paid'` y `metadata.app='mapmarket'`, y pone `plan='plus'`, `plus_until = ahora (o fin vigente) + 1 mes/1 año + 3 días de gracia`, guarda `onvo_customer_id`/`onvo_subscription_id` si vienen.
+   - `subscription.renewal.succeeded`: extiende `plus_until` (consulta `GET /v1/subscriptions/{id}` si viene el id).
+   - `subscription.renewal.failed`: con `past_due` se conserva Plus hasta `plus_until` (ONVO reintenta); con `canceled`/`unpaid` vuelve a `gratis`.
+   - Supuestos por confirmar en una prueba real: los nombres `subscriptionId` / `customerId` dentro de la sesión pagada y de la renovación (el código prueba varias formas y usa el email como respaldo).
+
+**Despliegue** (requiere `SUPABASE_ACCESS_TOKEN` — token personal de supabase.com/dashboard/account/tokens):
+```bash
+export SUPABASE_ACCESS_TOKEN=…            # nunca en el repo
+cd /workspace/geohogar-repo
+supabase link --project-ref cgswjjhvmexeiglzrysv
+supabase secrets set ONVO_SECRET_KEY="$ONVO_SECRET_KEY" ONVO_WEBHOOK_SECRET="webhook_secret_…" \
+  ONVO_PRICE_MENSUAL=cmv2wqq6w20bik36vkrllfl8e ONVO_PRICE_ANUAL=cmv2wqqz91za8k86v0ucnv13w SITE_URL=https://pcalifax-byte.github.io/geohogar/
+supabase functions deploy onvo-checkout
+supabase functions deploy onvo-webhook --no-verify-jwt
 ```
-`supabase secrets set TILOPAY_APIUSER=… TILOPAY_PASSWORD=… TILOPAY_KEY=… TILOPAY_PLAN_MENSUAL=<id> TILOPAY_PLAN_ANUAL=<id> TILOPAY_WEBHOOK_TOKEN=<cadena aleatoria larga>`
+`SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` ya existen dentro de las Edge Functions (no hay que configurarlos).
 
-**Verificado vs supuesto (según la documentación pública):**
-- Verificado: host único `app.tilopay.com`; `POST /api/v1/login` (apiuser/password → bearer, 24 h); `createPlanRepeat` (frecuencias 3=mensual, 4=anual, `trial`/`trial_days`, los 5 webhooks y `thanks_url` GET); ejemplos de payload (`webhook_subscribe`: id_plan, email, modality, amount, free_trial, next_payment_date; `webhook_payment`: id_plan, email, amount, auth, orderNumber; `webhook_unsubscribe` incluye expire); `getSuscriptorRepeat` (lista por plan con email, status `Active`/`Delete`, expire); `recurrentUrl` → `url_register`; política de reintentos; formato JSON; `orderHash` no público.
-- Supuesto / por confirmar con Tilopay: que la URL de registro acepte `?email=` para precargar el correo; que el webhook **no** indique el tipo de evento (por eso se consulta el estado real del suscriptor en cada aviso); la zona horaria de `expire`; los demás valores de `status` (p. ej. pausado); la forma exacta de las modalidades del plan. Para mayor seguridad, cuando Tilopay te dé el algoritmo de `orderHash`, valídalo en `procesar()`.
-- Respaldo diario recomendado: un cron (pg_cron o GitHub Action) que recorra `getSuscriptorRepeat` de ambos planes y sincronice `profiles`, por si se pierde un webhook.
+**En el Dashboard de ONVO** (Desarrolladores → Webhooks; la API pública no ofrece registrar webhooks): URL `https://cgswjjhvmexeiglzrysv.supabase.co/functions/v1/onvo-webhook`, eventos `checkout-session.succeeded`, `subscription.renewal.succeeded`, `subscription.renewal.failed`, `payment-intent.succeeded`, `payment-intent.failed`. Copia el secret (`webhook_secret_…`) a `ONVO_WEBHOOK_SECRET`.
 
-*Alternativa (Stripe):* si algún día usas Stripe, el flujo equivalente es Payment Link + `client_reference_id` + webhook `checkout.session.completed` / `customer.subscription.*` que actualiza `profiles.plan`/`plus_until`; la lógica de Plus y RLS no cambia.
+**Tarjetas de prueba** (docs ONVO · Pruebas; cualquier fecha futura y CVV): Visa aprobada `4242424242424242`, Mastercard aprobada `5555555555554444`, Amex aprobada `378282246310005`, Visa declinada `4000000000000002`, 3DS challenge `4000000000003220`, error de procesador `4000000000000119`.
+
 
 ### Qué está bloqueado tras Plus (frontend + RLS)
 Plus = pago vigente o prueba vigente. Favoritos > 10 (también limitado por política RLS), búsquedas guardadas/alertas por zona (RLS solo permite insertar a Plus), reporte CSV descargable, filtros avanzados de remates/adjudicados y comparación contra la mediana en la ficha. Todo lo demás sigue gratis. El bloqueo en el frontend es solo UX; la protección real son las políticas RLS y, para reportes de pago, generarlos en el servidor.

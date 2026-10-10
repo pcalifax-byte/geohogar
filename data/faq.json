@@ -201,6 +201,49 @@
     "venta directa"
    ],
    "answer": "Los bienes adjudicados son propiedades que un banco recibió y vende directamente, a menudo con descuento sobre el avalúo y financiamiento especial (p. ej. Banco Popular hasta 360 meses según su cartel). Activa 🏦 Adjudicados en el mapa o escríbeme «adjudicados en Alajuela». Fuentes: BN Venta de Bienes y catálogo de Banco Popular; BCR no se pudo consultar automáticamente."
+  },
+  {
+   "id": "plus",
+   "keywords": [
+    "plus",
+    "precio plus",
+    "cuanto cuesta",
+    "suscripcion",
+    "suscribirme",
+    "plan",
+    "planes",
+    "premium",
+    "mensualidad",
+    "anual",
+    "pagar plus"
+   ],
+   "answer": "MapMarket Plus cuesta ₡3.990 al mes o ₡29.990 al año (ahorras ~37 %). Incluye alertas por zona dibujada y de precio, filtros avanzados de remates, listas y favoritos ilimitados, comparación con la mediana, reportes CSV y destacar anuncios (agentes). Puedes probarlo gratis 2 días sin tarjeta. <a href=\"planes.html\" class=\"underline\">Ver planes</a>"
+  },
+  {
+   "id": "prueba",
+   "keywords": [
+    "prueba",
+    "gratis",
+    "trial",
+    "2 dias",
+    "dos dias",
+    "probar"
+   ],
+   "answer": "La prueba de Plus dura 2 días, es gratis y sin tarjeta (una por cuenta). Inicia sesión y toca «Prueba Plus gratis 2 días» en <a href=\"planes.html\" class=\"underline\">Planes</a>. Al terminar vuelves a Gratis sin cobro; luego puedes suscribirte por ₡3.990/mes o ₡29.990/año."
+  },
+  {
+   "id": "pago",
+   "keywords": [
+    "pago",
+    "tarjeta",
+    "onvo",
+    "cobro",
+    "cancelar suscripcion",
+    "factura",
+    "recibo",
+    "sinpe"
+   ],
+   "answer": "Los pagos de Plus se procesan con ONVO Pay (Costa Rica) en colones: ₡3.990/mes o ₡29.990/año, con cobro recurrente a tu tarjeta. MapMarket no guarda datos de tarjeta. Para cancelar, escríbenos desde <a href=\"cuenta.html\" class=\"underline\">Mi cuenta</a>; conservas Plus hasta el final del periodo pagado."
   }
  ],
  "saludo": "¡Hola! Soy el Asistente MapMarket 🏡. Puedo buscar propiedades por ti («apartamento en Escazú con piscina hasta $250 mil») o explicarte hipotecas, gastos de cierre y documentos.",

@@ -336,3 +336,18 @@ CREATE POLICY "destacar borrar" ON public.destacadas FOR DELETE TO authenticated
 
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v2 listo ✅' AS resultado;
+
+-- =====================================================================
+-- v3 · ONVO Pay (reemplaza a Tilopay). Idempotente.
+-- =====================================================================
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS onvo_customer_id TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS onvo_subscription_id TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS onvo_plan TEXT;
+CREATE INDEX IF NOT EXISTS profiles_onvo_sub_idx ON public.profiles (onvo_subscription_id);
+CREATE INDEX IF NOT EXISTS profiles_onvo_cus_idx ON public.profiles (onvo_customer_id);
+ALTER TABLE public.pagos_eventos ADD COLUMN IF NOT EXISTS event_key TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS pagos_eventos_event_key_uq ON public.pagos_eventos (event_key);
+REVOKE UPDATE ON public.profiles FROM authenticated;
+GRANT UPDATE (nombre) ON public.profiles TO authenticated;
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v3 (ONVO) listo ✅' AS resultado;

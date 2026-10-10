@@ -1,0 +1,7 @@
+project_id = "cgswjjhvmexeiglzrysv"
+
+[functions.onvo-checkout]
+verify_jwt = true
+
+[functions.onvo-webhook]
+verify_jwt = false

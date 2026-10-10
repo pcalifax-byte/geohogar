@@ -81,10 +81,12 @@
     pruebaTexto(u) { const h = this.horasPrueba(u); return h > 24 ? `Te quedan ${h} h de prueba (${Math.floor(h / 24)} d ${h % 24} h)` : `Te quedan ${h} h de prueba` },
     async subscribe(periodo) {
       const u = await this.user(); if (!u) { location.href = 'login.html?next=planes.html#registro'; return 'login' }
-      const url = (C.tilopay || {})[periodo === 'anual' ? 'anualUrl' : 'mensualUrl'];
-      if (url) { location.href = url + (url.includes('?') ? '&' : '?') + 'email=' + encodeURIComponent(u.email); return 'redirect' }
       if (DEMO) { const s = j(K.s, {}); s.plan = 'plus'; s.plus_until = new Date(Date.now() + (periodo === 'anual' ? 365 : 30) * 864e5).toISOString(); localStorage.setItem(K.s, JSON.stringify(s)); emit(); return 'demo' }
-      throw new Error('El pago con Tilopay aún no está configurado (GH_CONFIG.tilopay).');
+      // ONVO Pay: la Edge Function crea la sesión de Checkout con la llave secreta y devuelve la URL
+      const c = await sbClient(); const fn = (C.onvo && C.onvo.checkoutFunction) || 'onvo-checkout';
+      const { data, error } = await c.functions.invoke(fn, { body: { periodo: periodo === 'anual' ? 'anual' : 'mensual' } });
+      if (error || !data || !data.url) throw new Error('El pago con ONVO aún no está disponible (falta desplegar la función de cobro). Inténtalo más tarde.');
+      location.href = data.url; return 'redirect';
     },
     async setDemoPlan(plan) { const s = j(K.s, null); if (!s) throw new Error('Inicia sesión primero.'); s.plan = plan; if (plan === 'gratis') { delete s.plus_until; const t = j(K.tr, {}); if (t[s.email]) { t[s.email] = new Date(0).toISOString(); localStorage.setItem(K.tr, JSON.stringify(t)) } } localStorage.setItem(K.s, JSON.stringify(s)); emit() },
     /* Favoritos (local en demo / tabla favoritos en Supabase) */
