@@ -1,5 +1,5 @@
 -- =====================================================================
--- GeoHogar · configuración de Supabase (pegar UNA vez en SQL Editor → Run)
+-- MapMarket · configuración de Supabase (pegar UNA vez en SQL Editor → Run)
 -- Idempotente: se puede volver a ejecutar sin errores ni pérdida de datos.
 -- =====================================================================
 CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;
@@ -152,4 +152,4 @@ DROP POLICY IF EXISTS "alertas propias" ON public.alertas;
 CREATE POLICY "alertas propias" ON public.alertas FOR SELECT TO authenticated USING (user_id = auth.uid());
 
 NOTIFY pgrst, 'reload schema';
-SELECT 'GeoHogar listo ✅' AS resultado;
+SELECT 'MapMarket listo ✅' AS resultado;

@@ -1,4 +1,4 @@
-# GeoHogar
+# MapMarket
 
 Aplicación web de bienes raíces en Costa Rica con navegación 100% centrada en el mapa (Leaflet + Tailwind + JavaScript puro, en un solo `index.html`).
 
@@ -12,3 +12,5 @@ Aplicación web de bienes raíces en Costa Rica con navegación 100% centrada en
 
 ## Datos y actualización
 Los datos viven en `data/` y se actualizan con `python3 scripts/update.py` (commit + push solo si hay cambios). Ver `BACKEND.md` §9–10.
+
+> Nota: la marca es **MapMarket**, pero el repositorio y la URL siguen siendo `geohogar` a propósito. Renombrar el repo cambiaría la URL de GitHub Pages (`…/geohogar/` → `…/mapmarket/`) y rompería las Redirect URLs configuradas en Supabase y las URLs de retorno de Tilopay. Si algún día se renombra, actualiza esas configuraciones al mismo tiempo.

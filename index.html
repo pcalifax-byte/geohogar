@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<link rel="icon" href="data:,"><title>GeoHogar · Bienes raíces en Costa Rica</title>
+<link rel="icon" href="data:,"><title>MapMarket · Bienes raíces en Costa Rica</title>
 <script src="https://cdn.tailwindcss.com"></script><script src="js/config.js"></script><script src="js/auth.js"></script><script>tailwind.config={darkMode:'class'}</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"><link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <style>html,body,#map{height:100%;margin:0}
@@ -17,7 +17,7 @@
 <!-- Barra superior flotante -->
 <header class="fixed top-2 inset-x-2 z-[1000] bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-2xl shadow-xl p-2 text-sm">
  <div class="flex gap-2 items-center">
-  <b class="text-teal-700 dark:text-teal-400 whitespace-nowrap">📍 GeoHogar</b>
+  <b class="text-teal-700 dark:text-teal-400 whitespace-nowrap">📍 MapMarket</b>
   <input id="q" placeholder="Ciudad, provincia o zona…" class="flex-1 min-w-0 px-3 py-1.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
   <span id="upd" class="hidden sm:inline text-[10px] bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-2 py-0.5 rounded-full whitespace-nowrap"></span><a href="cuenta.html" id="bTrial" class="hidden px-2 py-1 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-800 dark:text-violet-200 whitespace-nowrap text-[11px] font-semibold"></a><a href="planes.html" id="bPlus" class="px-2 py-1.5 rounded-lg bg-violet-600 text-white whitespace-nowrap text-xs font-semibold">⭐<span class="hidden sm:inline"> Plus</span></a><a href="login.html" id="bUser" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap flex items-center gap-1" title="Cuenta">👤<span class="hidden lg:inline text-xs">Entrar</span></a><button id="bGuide" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap" title="Guía de compra">📋<span class="hidden lg:inline"> Guía de compra</span></button><button id="tgFilters" class="md:hidden px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Filtros">⚙️</button>
   <button id="tgDark" class="px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Modo oscuro">🌓</button>
@@ -49,9 +49,9 @@
 <aside id="card" class="hidden fixed z-[1001] bottom-0 inset-x-0 md:inset-x-auto md:right-3 md:top-40 md:bottom-3 md:w-96 max-h-[78vh] md:max-h-none overflow-auto bg-white dark:bg-slate-800 rounded-t-2xl md:rounded-2xl shadow-2xl"></aside>
 <div id="modal" class="hidden fixed inset-0 z-[2000] bg-black/50 flex items-end md:items-center justify-center md:p-3"><div id="mbox" class="bg-white dark:bg-slate-800 rounded-t-2xl md:rounded-2xl p-5 w-full max-w-lg max-h-[92vh] overflow-auto relative"></div></div>
 
-<button id="chatB" class="fixed z-[1500] right-3 bottom-4 w-14 h-14 rounded-full bg-teal-600 text-white text-2xl shadow-2xl" aria-label="Asistente GeoHogar">💬</button>
+<button id="chatB" class="fixed z-[1500] right-3 bottom-4 w-14 h-14 rounded-full bg-teal-600 text-white text-2xl shadow-2xl" aria-label="Asistente MapMarket">💬</button>
 <section id="chatW" class="hidden fixed z-[1600] inset-x-0 bottom-0 md:inset-x-auto md:right-3 md:bottom-20 md:w-96 h-[70vh] md:h-[560px] bg-white dark:bg-slate-800 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col">
- <div class="flex items-center gap-2 p-3 border-b dark:border-slate-700"><span class="text-xl">🏡</span><div><b>Asistente GeoHogar</b><div class="text-[10px] opacity-60">Respuestas automáticas · no es asesoría legal ni financiera</div></div><button id="chatX" class="ml-auto text-xl" aria-label="Cerrar">✕</button></div>
+ <div class="flex items-center gap-2 p-3 border-b dark:border-slate-700"><span class="text-xl">🏡</span><div><b>Asistente MapMarket</b><div class="text-[10px] opacity-60">Respuestas automáticas · no es asesoría legal ni financiera</div></div><button id="chatX" class="ml-auto text-xl" aria-label="Cerrar">✕</button></div>
  <div id="chatLog" class="flex-1 overflow-auto p-3 space-y-2"></div>
  <form id="chatF" class="p-2 border-t dark:border-slate-700 flex gap-2"><input id="chatIn" autocomplete="off" placeholder="Ej: casa en Heredia 3 habitaciones hasta 200 mil dólares" class="flex-1 min-w-0 px-3 py-2 rounded-full border dark:bg-slate-700 dark:border-slate-600 text-sm"><button class="bg-teal-600 text-white rounded-full px-4">➤</button></form>
 </section>
@@ -60,7 +60,7 @@
 <script>
 /* ===== Datos embebidos (generados al construir) ===== */
 let EMBED={properties:[],provinces:null,medians:null,pois:[],builtAt:''};let FX={},TASAS={},MERCADO={},META={},REMATES={items:[]};
-const CONFIG={USD_CRC:455,dataBase:'data/',whatsappSoporte:'' /* ej. '50688887777' */,chatApi:null /* ej. 'https://api.geohogar.cr/chat' (ver BACKEND.md) */,fxNote:'Tipo de cambio de referencia BCCR del 10 oct 2026 según dato aportado por el usuario (venta ₡455,60 · compra ₡449,86); se usa 455 fijo, aproximado. No verificado por GeoHogar.',storageKey:'geohogar_mine',darkKey:'geohogar_dark',apiBase:null /* ej. 'https://api.geohogar.cr' o Supabase */};
+const CONFIG={USD_CRC:455,dataBase:'data/',whatsappSoporte:'' /* ej. '50688887777' */,chatApi:null /* ej. 'https://api.geohogar.cr/chat' (ver BACKEND.md) */,fxNote:'Tipo de cambio de referencia BCCR del 10 oct 2026 según dato aportado por el usuario (venta ₡455,60 · compra ₡449,86); se usa 455 fijo, aproximado. No verificado por MapMarket.',storageKey:'geohogar_mine',darkKey:'geohogar_dark',apiBase:null /* ej. 'https://api.geohogar.cr' o Supabase */};
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const fmt=n=>Math.round(n).toLocaleString('es-CR');
 
@@ -165,7 +165,7 @@ const UI={
  gallery(p){const n=(p.images||[]).length;const imgs=n?p.images.slice(0,12).map((u,i)=>`<div class="snap-center shrink-0 w-full h-48 relative bg-slate-300"><img src="${esc(u)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-sm',textContent:'Foto no disponible'}))" class="w-full h-48 object-cover"><span class="absolute bottom-2 left-2 text-[11px] text-white bg-black/50 px-2 rounded">Foto del anuncio · ${esc(p.source)} · ${i+1}/${Math.min(n,12)}</span></div>`):
   [0,1,2].map(i=>`<div class="snap-center shrink-0 w-full h-48 flex items-center justify-center text-7xl relative" style="background:linear-gradient(135deg,${GR[i][0]},${GR[i][1]})">${EMO[p.type]||'🏠'}<span class="absolute bottom-2 left-2 text-[11px] text-white bg-black/50 px-2 rounded">Imagen ilustrativa · no es foto real · ${i+1}/3</span></div>`);
   return `<div class="flex overflow-x-auto snap-x snap-mandatory">${imgs.join('')}</div>`},
- showCard(p){this.cur=p;const wa='https://wa.me/'+(p.phone?'506'+String(p.phone).replace(/\D/g,'').slice(-8):'')+'?text='+encodeURIComponent(`Hola, me interesa esta propiedad en GeoHogar: ${p.title} (${DataService.full(p)})${p.url?' '+p.url:''}`);
+ showCard(p){this.cur=p;const wa='https://wa.me/'+(p.phone?'506'+String(p.phone).replace(/\D/g,'').slice(-8):'')+'?text='+encodeURIComponent(`Hola, me interesa esta propiedad en MapMarket: ${p.title} (${DataService.full(p)})${p.url?' '+p.url:''}`);
   const badge=p.demo?'<span class="text-[11px] bg-pink-600 text-white px-2 py-0.5 rounded-full">DEMO · propiedad ficticia</span>':p.mine?'<span class="text-[11px] bg-violet-600 text-white px-2 py-0.5 rounded-full">Publicada por ti (local)</span>':'<span class="text-[11px] bg-teal-700 text-white px-2 py-0.5 rounded-full">Anuncio real · '+esc(p.source==='anuntico'?'Anuntico':'Encuentra24')+'</span>';
   const row=(k,v)=>`<div class="opacity-60">${k}</div><div class="col-span-2">${v}</div>`;
   $('card').innerHTML=`<div class="relative">${this.gallery(p)}<button id="cClose" class="absolute top-2 right-2 bg-white/90 text-black rounded-full w-8 h-8">✕</button>${Plus.heart(p)}</div>
@@ -293,7 +293,7 @@ const Plus={user:null,plus:false,favs:[],rf:null,
   if(this.plus){$('bPlus').innerHTML=this.user.trial_activo?'⭐<span class="hidden sm:inline"> Suscribirme</span>':'⭐<span class="hidden sm:inline"> Plus activo</span>';document.querySelectorAll('.lk').forEach(x=>x.remove())}
   if(this._ok)return;this._ok=1;$('bSave').onclick=()=>this.gate('Búsquedas guardadas y alertas por zona',()=>this.save());$('bRep').onclick=()=>this.gate('Reportes de mercado descargables',()=>this.report());
   $('bRemAdv').onclick=()=>this.gate('Filtros avanzados de remates y adjudicados',()=>this.remAdv());Auth.banner()},
- upsell(f,fin){const u=this.user,trial=!u||!u.trial_used;UI.modal(`<div class="text-center"><div class="text-5xl">${fin?'⏰':'🔒'}</div><h2 class="text-xl font-bold mt-2">${esc(f)} ${fin?'sigue con Plus por $7/mes':'es parte de GeoHogar Plus'}</h2><p class="text-sm opacity-80 mt-2">Alertas por zona dibujada, filtros avanzados, favoritos ilimitados, reportes y más.</p>
+ upsell(f,fin){const u=this.user,trial=!u||!u.trial_used;UI.modal(`<div class="text-center"><div class="text-5xl">${fin?'⏰':'🔒'}</div><h2 class="text-xl font-bold mt-2">${esc(f)} ${fin?'sigue con Plus por $7/mes':'es parte de MapMarket Plus'}</h2><p class="text-sm opacity-80 mt-2">Alertas por zona dibujada, filtros avanzados, favoritos ilimitados, reportes y más.</p>
   <div class="mt-4 flex flex-wrap gap-2 justify-center">${trial?`<button id="upTrial" class="bg-violet-600 text-white rounded-xl px-4 py-2 font-semibold">🎁 Prueba Plus gratis 2 días</button><a href="planes.html" class="border rounded-xl px-4 py-2">Ver planes</a>`:`<a href="planes.html" class="bg-violet-600 text-white rounded-xl px-4 py-2 font-semibold">Suscribirme · $7/mes o $59/año</a>`}</div><p class="text-[11px] mt-2 opacity-70">${trial?'Sin tarjeta · una prueba por cuenta'+(u?'':' · requiere iniciar sesión'):'Pago seguro con Tilopay'}</p><p id="upMsg" class="text-xs mt-1 text-red-600"></p></div>`);
   $('upTrial')&&($('upTrial').onclick=async()=>{if(!this.user){location.href='login.html?next=index.html#registro';return}try{await Auth.startTrial();UI.close();await this.init()}catch(e){$('upMsg').textContent=e.message}})},
  gate(f,fn){this.plus?fn():this.upsell(f)},
@@ -306,7 +306,7 @@ const Plus={user:null,plus:false,favs:[],rf:null,
   v.forEach(p=>{const u=DataService.toUSD(p),m=p.area||p.lot;rows.push([p.id,p.title,p.type,p.price,p.currency,u&&Math.round(u),m,u&&m?Math.round(u/m):'',p.province,p.location,p.status||'activa',p.url||''])});
   const by={};v.forEach(p=>{const u=DataService.toUSD(p);if(!u)return;const k=p.province+'|'+p.type;(by[k]=by[k]||[]).push(u)});
   rows.push([]);rows.push(['RESUMEN','provincia|tipo','n','mediana_usd']);Object.entries(by).forEach(([k,a])=>{a.sort((x,y)=>x-y);rows.push(['',k,a.length,Math.round(a[a.length>>1])])});
-  const csv=rows.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='geohogar_reporte_'+new Date().toISOString().slice(0,10)+'.csv';a.click()},
+  const csv=rows.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='mapmarket_reporte_'+new Date().toISOString().slice(0,10)+'.csv';a.click()},
  remAdv(){const r=this.rf||{};const f=(id,l,t,v)=>`<label class="block text-sm">${l}<input id="${id}" type="${t}" value="${v??''}" class="w-full mt-1 px-2 py-1 rounded border dark:bg-slate-700 dark:border-slate-600"></label>`;
   UI.modal(`<h2 class="text-xl font-bold">⚖️ Filtros avanzados de remates / adjudicados ⭐</h2><div class="grid grid-cols-2 gap-3 mt-3">${f('raH','Remate antes de','date',r.hasta)}${f('raB','Base / precio máx. (₡)','number',r.max)}${f('raD','Descuento mín. adjudicados (%)','number',r.desc)}
   <label class="block text-sm">Tipo<select id="raT" class="w-full mt-1 px-2 py-1 rounded border dark:bg-slate-700"><option value="">Todos</option>${['Casa','Lote/Terreno','Finca','Inmueble'].map(t=>`<option ${r.tipo===t?'selected':''}>${t}</option>`).join('')}</select></label>
@@ -346,7 +346,7 @@ const Remates={layer:null,on:{remate:false,adjudicado:false},filter:null,
   <div class="text-[11px] rounded-lg p-2 ${R?'bg-red-50 dark:bg-red-900/30':'bg-orange-50 dark:bg-orange-900/30'} space-y-1">${R?`<b>Reglas del remate (información general):</b><br>• Para participar se suele depositar ~50% de la base (en efectivo/cheque/transferencia según el juzgado) y el resto en el plazo que fije el despacho (usualmente 3 días hábiles).<br>• Si no hay postores, el 2do remate es al 75% y el 3er al 25% de la base.<br>• Lee el <b>edicto completo</b> y verifica la finca en el <b>Registro Nacional</b> (gravámenes, anotaciones, ocupantes).<br>• El inmueble se adquiere “como está”; puede haber ocupantes o deudas municipales.<br>• Consulta a un <b>abogado</b> antes de ofertar.`:`<b>Venta directa del banco:</b> precio fijo con descuento sobre avalúo; los bancos suelen ofrecer <b>financiamiento especial</b> (p. ej. BP hasta 360 meses y 0% comisiones según su cartel; BN según condiciones vigentes). Verifica estado registral y visita el inmueble; confirma condiciones con el banco.`}<br><i>No es asesoría legal.</i></div></div>`;
   $('card').classList.remove('hidden');$('cClose').onclick=()=>$('card').classList.add('hidden')}
 };
-/* ===== Chat: Asistente GeoHogar (intenciones locales; CONFIG.chatApi permite conectar un LLM) ===== */
+/* ===== Chat: Asistente MapMarket (intenciones locales; CONFIG.chatApi permite conectar un LLM) ===== */
 const Chat={kb:null,
  N:s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),
  lev(a,b){if(Math.abs(a.length-b.length)>2)return 9;const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return d[b.length]},
@@ -357,7 +357,7 @@ const Chat={kb:null,
  add(html,me){const d=document.createElement('div');d.className=`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${me?'ml-auto bg-teal-600 text-white':'bg-slate-100 dark:bg-slate-700'}`;d.innerHTML=html;$('chatLog').appendChild(d);$('chatLog').scrollTop=1e9;return d},
  bot(t){return this.add(t)},
  chips(list){const d=document.createElement('div');d.className='flex flex-wrap gap-1';list.forEach(c=>{const b=document.createElement('button');b.className='text-xs border border-teal-600 text-teal-700 dark:text-teal-300 rounded-full px-2 py-0.5';b.textContent=c;b.onclick=()=>this.ask(c);d.appendChild(b)});$('chatLog').appendChild(d);$('chatLog').scrollTop=1e9},
- agent(){const u='https://wa.me/'+(CONFIG.whatsappSoporte||'')+'?text='+encodeURIComponent('Hola, necesito ayuda con GeoHogar'+(UI.cur?': '+UI.cur.title+' '+(UI.cur.url||''):''));
+ agent(){const u='https://wa.me/'+(CONFIG.whatsappSoporte||'')+'?text='+encodeURIComponent('Hola, necesito ayuda con MapMarket'+(UI.cur?': '+UI.cur.title+' '+(UI.cur.url||''):''));
   this.bot(`Te conecto con un agente por WhatsApp: <a class="underline font-semibold" target="_blank" rel="noopener" href="${u}">💬 Abrir WhatsApp</a>${CONFIG.whatsappSoporte?'':'<br><span class="text-[11px] opacity-70">(Aún no hay número de soporte configurado: elige el contacto en WhatsApp.)</span>'}`)},
  parse(q){const t=this.N(q),f={};
   const TY=[['Apartamento',/\b(apartamento|apto|apartamentos|condominio vertical)\b/],['Lote/Terreno',/\b(lote|lotes|terreno|terrenos)\b/],['Finca',/\bfincas?\b/],['Casa/Terreno de playa',/\bplaya\b/],['Comercio',/\b(local|comercio)\b/],['Oficina',/\boficinas?\b/],['Casa',/\bcasas?\b/]];

@@ -1,4 +1,4 @@
-/* GeoHogar · Auth compartido (Supabase Auth o modo demo con localStorage). */
+/* MapMarket · Auth compartido (Supabase Auth o modo demo con localStorage). */
 (function () {
   const C = window.GH_CONFIG || {};
   const DEMO = !(C.supabaseUrl && C.supabaseAnonKey);

@@ -1,4 +1,4 @@
-# GeoHogar · Guía de backend
+# MapMarket · Guía de backend
 
 El frontend (`index.html`) ya separa el acceso a datos en el módulo **`DataService`**. Hoy lee datos embebidos y `localStorage`; para usar una API real basta con definir `CONFIG.apiBase` y ajustar `getProperties()` / `addProperty()`. El resto (`MapController`, `Filters`, `Layers`, `UI`) no cambia.
 
@@ -134,7 +134,7 @@ Para leer la tasa de un banco automáticamente, agrega en `tasas.json` → `banc
 
 Amenidades: `scripts/amenidades.py` (catálogo casa/condominio, sinónimos, sin acentos). El mismo extractor se aplica a anuncios nuevos.
 
-## 10. Asistente GeoHogar (chatbot) y conexión a un LLM
+## 10. Asistente MapMarket (chatbot) y conexión a un LLM
 Hoy funciona 100% en el navegador: intenciones por palabras clave (sin acentos, tolerancia a errores de 1 letra) sobre `data/faq.json` y un parser de búsqueda (tipo, provincia/cantón, habitaciones, precio mín/máx en $ o ₡, «millones», «mil», amenidades) que aplica filtros al mapa.
 
 Para conectar un LLM define `CONFIG.chatApi` (URL). El frontend envía:
@@ -150,7 +150,7 @@ async def chat(body: dict):
 ```
 Mantén la clave del LLM en el servidor, nunca en el frontend. `CONFIG.whatsappSoporte` define el número de soporte (vacío = WhatsApp sin número).
 
-## 11. Cuentas (Supabase Auth) y GeoHogar Plus
+## 11. Cuentas (Supabase Auth) y MapMarket Plus
 Páginas: `login.html` (iniciar sesión / crear cuenta / enlace mágico / olvidé mi contraseña), `planes.html` (precios y comparación), `cuenta.html` (perfil, plan, favoritos, cerrar sesión, nueva contraseña). Lógica compartida en `js/auth.js`; configuración en `js/config.js`.
 
 **Modo demo:** si `supabaseUrl` o `supabaseAnonKey` están vacíos, todo funciona con `localStorage` y se muestra el aviso «Modo demostración: el inicio de sesión no es real». En demo, «Probar Plus» activa Plus localmente sin cobro.
@@ -161,13 +161,13 @@ Páginas: `login.html` (iniciar sesión / crear cuenta / enlace mágico / olvid�
 3. *Authentication → URL Configuration*: **Site URL** `https://pcalifax-byte.github.io/geohogar/` y en **Redirect URLs** agrega `https://pcalifax-byte.github.io/geohogar/*` (enlace mágico vuelve a `index.html`; recuperación a `cuenta.html#nueva-clave`).
 4. *Authentication → Providers → Email*: activa email + contraseña y «Confirm email».
 5. *Authentication → Email Templates* (en español), por ejemplo:
-   - **Confirmar registro** — Asunto: «Confirma tu cuenta de GeoHogar». Cuerpo: «¡Hola! Confirma tu correo para empezar a guardar propiedades: <a href="{{ .ConfirmationURL }}">Confirmar cuenta</a>».
-   - **Magic Link** — Asunto: «Tu enlace para entrar a GeoHogar». Cuerpo: «Toca para entrar (vence en 1 hora): <a href="{{ .ConfirmationURL }}">Entrar a GeoHogar</a>. Si no lo pediste, ignora este correo.»
-   - **Reset Password** — Asunto: «Restablece tu contraseña de GeoHogar». Cuerpo: «<a href="{{ .ConfirmationURL }}">Crear una nueva contraseña</a>».
+   - **Confirmar registro** — Asunto: «Confirma tu cuenta de MapMarket». Cuerpo: «¡Hola! Confirma tu correo para empezar a guardar propiedades: <a href="{{ .ConfirmationURL }}">Confirmar cuenta</a>».
+   - **Magic Link** — Asunto: «Tu enlace para entrar a MapMarket». Cuerpo: «Toca para entrar (vence en 1 hora): <a href="{{ .ConfirmationURL }}">Entrar a MapMarket</a>. Si no lo pediste, ignora este correo.»
+   - **Reset Password** — Asunto: «Restablece tu contraseña de MapMarket». Cuerpo: «<a href="{{ .ConfirmationURL }}">Crear una nueva contraseña</a>».
    - Para producción configura SMTP propio (*Project Settings → Auth → SMTP*), p. ej. Resend, SendGrid o Amazon SES.
 
 ### Prueba gratis de 2 días (sin tarjeta)
-`planes.html`, el modal de mejora en el mapa y `cuenta.html` llaman `Auth.startTrial()` → RPC `start_trial()` (en `schema.sql`): es `SECURITY DEFINER`, solo funciona con sesión iniciada, solo una vez por cuenta (`trial_used`) y fija `trial_ends_at = now() + 2 días`. `is_plus()` / `has_plus()` devuelven verdadero si hay pago vigente **o** prueba vigente, así que las políticas RLS se aplican solas al vencer. El mapa muestra «⏳ X h Plus» en la barra superior, se recarga al vencer y muestra el aviso «Tu prueba terminó». En modo demo se guarda en `localStorage` (`gh_demo_trials`). No se crea la prueba en Tilopay (su `trial_days` exige registrar tarjeta); la prueba es 100 % de GeoHogar.
+`planes.html`, el modal de mejora en el mapa y `cuenta.html` llaman `Auth.startTrial()` → RPC `start_trial()` (en `schema.sql`): es `SECURITY DEFINER`, solo funciona con sesión iniciada, solo una vez por cuenta (`trial_used`) y fija `trial_ends_at = now() + 2 días`. `is_plus()` / `has_plus()` devuelven verdadero si hay pago vigente **o** prueba vigente, así que las políticas RLS se aplican solas al vencer. El mapa muestra «⏳ X h Plus» en la barra superior, se recarga al vencer y muestra el aviso «Tu prueba terminó». En modo demo se guarda en `localStorage` (`gh_demo_trials`). No se crea la prueba en Tilopay (su `trial_days` exige registrar tarjeta); la prueba es 100 % de MapMarket.
 
 ### Cobro con Tilopay (proveedor principal)
 Fuente: documentación pública https://tilopay.com/developers (páginas «Crear plan recurrente», «Suscriptores de un plan», «URL de registro y renovación», «Webhooks», «Autenticación», revisadas el 10 oct 2026; Tilopay las marca como verificadas el 28–29 ago 2026).
@@ -175,10 +175,10 @@ Fuente: documentación pública https://tilopay.com/developers (páginas «Crear
 **Lo que debes hacer en Tilopay**
 1. Crea la cuenta de comercio en tilopay.com y completa la afiliación (KYC, cuenta bancaria). Tilopay no tiene un host de pruebas aparte: usa sus credenciales/modo de prueba según te indiquen.
 2. En `admin.tilopay.com/admin/checkout` obtén `apiuser`, `password` y `key`. **Son secretos**: van solo en Supabase (`supabase secrets set`), nunca en `js/config.js` ni en el repo.
-3. Crea dos **planes recurrentes** (panel → Recurrentes, o `POST /api/v1/createPlanRepeat`): «GeoHogar Plus mensual» `currency=USD`, `frecuency=3` (mensual), monto 7; «GeoHogar Plus anual» `frecuency=4` (anual), monto 59. `trial=0` (la prueba la da GeoHogar). Configura en ambos:
+3. Crea dos **planes recurrentes** (panel → Recurrentes, o `POST /api/v1/createPlanRepeat`): «MapMarket Plus mensual» `currency=USD`, `frecuency=3` (mensual), monto 7; «MapMarket Plus anual» `frecuency=4` (anual), monto 59. `trial=0` (la prueba la da MapMarket). Configura en ambos:
    - `webhook_subscribe`, `webhook_payment`, `webhook_rejected`, `webhook_unsubscribe`, `webhook_reactive` → `https://<proyecto>.supabase.co/functions/v1/tilopay-webhook?t=<TILOPAY_WEBHOOK_TOKEN>`
    - `thanks_url` (GET) → `https://pcalifax-byte.github.io/geohogar/cuenta.html?pago=ok`
-4. Copia la **URL de registro** de cada plan (panel, o `POST /api/v1/recurrentUrl` → `url_register`, con forma `https://app.tilopay.com/admin/recurrent/register/<ID>`) a `js/config.js` → `tilopay.mensualUrl` / `tilopay.anualUrl`. Los botones «Suscribirme» agregan `?email=<correo del usuario>` (parámetro que muestra la documentación de `recurrentUrl`). Tilopay no ofrece un campo de referencia propio en este flujo, así que **el usuario se identifica por su email**: pide usar el mismo correo de la cuenta GeoHogar.
+4. Copia la **URL de registro** de cada plan (panel, o `POST /api/v1/recurrentUrl` → `url_register`, con forma `https://app.tilopay.com/admin/recurrent/register/<ID>`) a `js/config.js` → `tilopay.mensualUrl` / `tilopay.anualUrl`. Los botones «Suscribirme» agregan `?email=<correo del usuario>` (parámetro que muestra la documentación de `recurrentUrl`). Tilopay no ofrece un campo de referencia propio en este flujo, así que **el usuario se identifica por su email**: pide usar el mismo correo de la cuenta MapMarket.
 5. Escribe a soporte de Tilopay (`soporte@tilopay.com` / `sac@tilopay.com`) para pedir el algoritmo de `orderHash` (verificación de origen; no es público) y, si usas `processPayment`, la especificación de su webhook.
 
 **Edge Function `tilopay-webhook`** — responde 200 de inmediato (Tilopay reintenta la recurrencia hasta 5 veces si recibe 400/403/404/502/504; las compras únicas no se reintentan) y **verifica contra el API** antes de dar Plus, porque la documentación advierte no tomar decisiones solo con el contenido del webhook:

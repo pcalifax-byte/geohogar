@@ -8,7 +8,7 @@ Fuentes:
 """
 import json, re, html, subprocess, time, datetime, os, unicodedata
 
-UA = "Mozilla/5.0 (X11; Linux x86_64) GeoHogarBot/1.0"
+UA = "Mozilla/5.0 (X11; Linux x86_64) MapMarketBot/1.0"
 def get(url, timeout=40, binary=False):
     r = subprocess.run(["curl", "-sL", "--max-time", str(timeout), "-A", UA, "-H", "Accept: text/html,application/json,*/*", url], capture_output=True)
     return r.stdout if binary else r.stdout.decode("utf-8", "ignore")

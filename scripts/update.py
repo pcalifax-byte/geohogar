@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GeoHogar · actualización diaria de datos.
+"""MapMarket · actualización diaria de datos.
 
 Uso:  python3 scripts/update.py [--no-push] [--no-listings] [--max-new N] [--delay 1.5]
 
@@ -19,7 +19,7 @@ from amenidades import extraer
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 D = lambda n: os.path.join(ROOT, "data", n)
-UA = "GeoHogarBot/1.0 (+https://pcalifax-byte.github.io/geohogar/)"
+UA = "MapMarketBot/1.0 (+https://pcalifax-byte.github.io/geohogar/)"
 ap = argparse.ArgumentParser()
 ap.add_argument("--no-push", action="store_true"); ap.add_argument("--no-listings", action="store_true")
 ap.add_argument("--max-new", type=int, default=30); ap.add_argument("--delay", type=float, default=1.5)

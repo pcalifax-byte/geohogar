@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://geohogar.cr/schema/property-feature.json",
-  "title": "GeoHogar Property (GeoJSON Feature)",
+  "title": "MapMarket Property (GeoJSON Feature)",
   "type": "object",
   "required": ["type", "geometry", "properties"],
   "properties": {

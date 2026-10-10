@@ -1,4 +1,4 @@
-/* GeoHogar · configuración pública (sin secretos).
+/* MapMarket · configuración pública (sin secretos).
    supabaseAnonKey es una clave PÚBLICA (protegida por RLS); nunca pongas aquí la service_role key. */
 window.GH_CONFIG = {
   supabaseUrl: 'https://cgswjjhvmexeiglzrysv.supabase.co',          // ej. 'https://xxxx.supabase.co'  (vacío = modo demo)
