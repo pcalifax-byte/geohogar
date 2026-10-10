@@ -15,7 +15,16 @@
     sb.auth.onAuthStateChange(() => emit());
     return sb;
   }
-  const back = () => new URL(C.redirectTras || 'index.html', location.href).href;
+  // Base fija para enlaces de correo: nunca localhost ni la raíz de github.io
+  const base = () => (/^https:/.test(location.href) && location.pathname.includes('/geohogar/')) ? new URL('./', location.href).href : (C.siteUrl || new URL('./', location.href).href);
+  const cb = (tipo, next) => base() + 'confirmar.html?tipo=' + tipo + (next ? '&next=' + encodeURIComponent(next) : '');
+  const back = () => cb('signup', C.redirectTras || 'index.html');
+  // Si un correo cayó en otra página (p. ej. Site URL = index.html), mandarlo a confirmar.html
+  (function () {
+    if (/confirmar\.html$/.test(location.pathname)) return;
+    const h = location.hash, q = location.search;
+    if (/(^#|&)(access_token|error|error_code)=/.test(h) || /[?&](code|error|error_code|token_hash)=/.test(q)) location.replace(base() + 'confirmar.html' + q + h);
+  })();
   const Auth = {
     demo: DEMO,
     onChange(f) { listeners.push(f) },
@@ -40,14 +49,23 @@
     },
     async magicLink(email) {
       if (DEMO) { this._demoLogin(email); return 'Modo demo: no se envió ningún correo; iniciaste sesión directamente.' }
-      const c = await sbClient(); const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: back() } }); if (error) throw error;
+      const c = await sbClient(); const { error } = await c.auth.signInWithOtp({ email, options: { emailRedirectTo: cb('magic', C.redirectTras || 'index.html') } }); if (error) throw error;
       return 'Te enviamos un enlace mágico. Ábrelo desde tu correo.';
     },
     async resetPassword(email) {
       if (DEMO) return 'Modo demo: no se envía correo de recuperación.';
-      const c = await sbClient(); const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: new URL('cuenta.html#nueva-clave', location.href).href }); if (error) throw error;
+      const c = await sbClient(); const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: cb('recovery', 'cuenta.html#nueva-clave') }); if (error) throw error;
       return 'Te enviamos un correo para restablecer la contraseña.';
     },
+    async resend(email, tipo) {
+      if (DEMO) return 'Modo demo.';
+      const c = await sbClient();
+      const { error } = tipo === 'magic' ? await c.auth.signInWithOtp({ email, options: { emailRedirectTo: cb('magic', C.redirectTras || 'index.html') } })
+        : tipo === 'recovery' ? await c.auth.resetPasswordForEmail(email, { redirectTo: cb('recovery', 'cuenta.html#nueva-clave') })
+        : await c.auth.resend({ type: 'signup', email, options: { emailRedirectTo: back() } });
+      if (error) throw error; return 'Listo: te enviamos un correo nuevo. Revisa también Spam/Promociones.';
+    },
+    client: () => sbClient(),
     async updatePassword(pw) { if (DEMO) return 'Modo demo.'; const c = await sbClient(); const { error } = await c.auth.updateUser({ password: pw }); if (error) throw error; return 'Contraseña actualizada.' },
     async signOut() { if (DEMO) localStorage.removeItem(K.s); else await (await sbClient()).auth.signOut(); emit() },
     _demoLogin(email) { const us = j(K.u, {}); const prev = j(K.s, {}) || {}; localStorage.setItem(K.s, JSON.stringify({ id: 'demo-' + email, email, nombre: (us[email] && us[email].nombre) || email.split('@')[0], plan: prev.email === email ? prev.plan || 'gratis' : 'gratis' })); emit(); return 'ok' },

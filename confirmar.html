@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={darkMode:"class"}</script><script src="js/config.js"></script><script src="js/auth.js"></script><script>Auth.theme()</script><title>Confirmando correo · MapMarket</title></head>
+<body class="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex items-center justify-center p-5">
+<div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-7 text-center">
+ <a href="index.html" class="text-xl font-bold text-teal-700 dark:text-teal-400">📍 MapMarket</a>
+ <div id="ic" class="text-5xl mt-5 animate-pulse">✉️</div><h1 id="t" class="text-xl font-bold mt-3">Confirmando tu correo…</h1><p id="d" class="text-sm opacity-80 mt-2">Un momento, por favor.</p>
+ <div id="re" class="hidden mt-5 text-left"><label class="text-sm">Tu correo<input id="em" type="email" class="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-700 dark:border-slate-600"></label>
+  <button id="rb" class="mt-3 w-full bg-teal-600 hover:bg-teal-700 text-white rounded-lg py-2.5 font-semibold">Reenviar correo</button><p id="rm" class="text-sm mt-2"></p></div>
+ <div class="mt-5 flex gap-2 justify-center text-sm"><a href="index.html" class="border rounded-lg px-3 py-1.5 dark:border-slate-600">Ir al mapa</a><a href="login.html" class="border rounded-lg px-3 py-1.5 dark:border-slate-600">Iniciar sesión</a></div>
+</div>
+<script>
+const $=i=>document.getElementById(i),Q=new URLSearchParams(location.search),H=new URLSearchParams(location.hash.slice(1));
+const tipo=Q.get('tipo')||(H.get('type')==='recovery'?'recovery':H.get('type')==='magiclink'?'magic':'signup'),next=Q.get('next')||'index.html';
+const ok=(t,d,go)=>{$('ic').textContent='✅';$('ic').classList.remove('animate-pulse');$('t').textContent=t;$('d').textContent=d;if(go)setTimeout(()=>location.replace(go),1800)};
+const fail=(t,d)=>{$('ic').textContent='⚠️';$('ic').classList.remove('animate-pulse');$('t').textContent=t;$('d').textContent=d;$('re').classList.remove('hidden');$('em').value=localStorage.getItem('mm_ultimo_email')||''};
+const MSG={otp_expired:'El enlace venció o ya fue usado (los enlaces sirven una sola vez y duran poco). Pide uno nuevo abajo.',access_denied:'El enlace no es válido o ya fue usado. Pide uno nuevo abajo.'};
+$('rb').onclick=async()=>{const e=$('em').value.trim();if(!e){$('rm').textContent='Escribe tu correo.';return}
+ try{$('rm').className='text-sm mt-2 text-emerald-600';$('rm').textContent=await Auth.resend(e,tipo==='recovery'?'recovery':tipo==='magic'?'magic':'signup')}catch(x){$('rm').className='text-sm mt-2 text-red-600';$('rm').textContent=/rate|seconds/i.test(x.message)?'Espera un minuto antes de pedir otro correo.':x.message}};
+(async()=>{
+ const err=Q.get('error_code')||H.get('error_code')||Q.get('error')||H.get('error');
+ if(err){fail('No pudimos confirmar el enlace',MSG[err]||MSG[H.get('error')]||decodeURIComponent((Q.get('error_description')||H.get('error_description')||'Error desconocido').replace(/\+/g,' ')));return}
+ if(Auth.demo){ok('Modo demostración','No hay correo que confirmar en modo demo.','index.html');return}
+ try{const c=await Auth.client();
+  const code=Q.get('code'),th=Q.get('token_hash');
+  if(code){const {error}=await c.auth.exchangeCodeForSession(code);if(error&&!/already|used/i.test(error.message))throw error}
+  else if(th){const {error}=await c.auth.verifyOtp({token_hash:th,type:Q.get('type')||'email'});if(error)throw error}
+  let s=null;for(let i=0;i<20&&!s;i++){s=(await c.auth.getSession()).data.session;if(!s)await new Promise(r=>setTimeout(r,250))}
+  history.replaceState(null,'',location.pathname+'?tipo='+tipo);
+  if(!s){fail('No encontramos una sesión','Abre el enlace más reciente desde el mismo navegador, o pide uno nuevo.');return}
+  if(tipo==='recovery')ok('Enlace verificado','Ahora crea tu nueva contraseña.','cuenta.html#nueva-clave');
+  else ok('¡Correo confirmado!','Bienvenido a MapMarket, '+s.user.email+'. Te llevamos al mapa…',next);
+ }catch(x){fail('No pudimos confirmar el enlace',/expired|invalid/i.test(x.message)?MSG.otp_expired:x.message)}
+})();
+</script></body></html>
