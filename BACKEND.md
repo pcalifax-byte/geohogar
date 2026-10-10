@@ -149,3 +149,48 @@ async def chat(body: dict):
     return {"reply": "Encontré 12 casas en Heredia…", "filters": {"type": "Casa", "prov": "Heredia"}}
 ```
 Mantén la clave del LLM en el servidor, nunca en el frontend. `CONFIG.whatsappSoporte` define el número de soporte (vacío = WhatsApp sin número).
+
+## 11. Cuentas (Supabase Auth) y GeoHogar Plus
+Páginas: `login.html` (iniciar sesión / crear cuenta / enlace mágico / olvidé mi contraseña), `planes.html` (precios y comparación), `cuenta.html` (perfil, plan, favoritos, cerrar sesión, nueva contraseña). Lógica compartida en `js/auth.js`; configuración en `js/config.js`.
+
+**Modo demo:** si `supabaseUrl` o `supabaseAnonKey` están vacíos, todo funciona con `localStorage` y se muestra el aviso «Modo demostración: el inicio de sesión no es real». En demo, «Probar Plus» activa Plus localmente sin cobro.
+
+### Configurar Supabase
+1. Crea un proyecto en supabase.com → *Project Settings → API*: copia **Project URL** y **anon public key** a `js/config.js` (la anon key es pública; **nunca** pongas la `service_role` key en el frontend ni en el repo).
+2. *SQL Editor*: ejecuta el bloque «Cuentas, plan Plus…» de `schema.sql` (tablas `profiles`, `favoritos`, `busquedas_guardadas`, `alertas`, trigger de perfil y políticas RLS; requiere extensión `postgis`).
+3. *Authentication → URL Configuration*: **Site URL** `https://pcalifax-byte.github.io/geohogar/` y en **Redirect URLs** agrega `https://pcalifax-byte.github.io/geohogar/*` (enlace mágico vuelve a `index.html`; recuperación a `cuenta.html#nueva-clave`).
+4. *Authentication → Providers → Email*: activa email + contraseña y «Confirm email».
+5. *Authentication → Email Templates* (en español), por ejemplo:
+   - **Confirmar registro** — Asunto: «Confirma tu cuenta de GeoHogar». Cuerpo: «¡Hola! Confirma tu correo para empezar a guardar propiedades: <a href="{{ .ConfirmationURL }}">Confirmar cuenta</a>».
+   - **Magic Link** — Asunto: «Tu enlace para entrar a GeoHogar». Cuerpo: «Toca para entrar (vence en 1 hora): <a href="{{ .ConfirmationURL }}">Entrar a GeoHogar</a>. Si no lo pediste, ignora este correo.»
+   - **Reset Password** — Asunto: «Restablece tu contraseña de GeoHogar». Cuerpo: «<a href="{{ .ConfirmationURL }}">Crear una nueva contraseña</a>».
+   - Para producción configura SMTP propio (*Project Settings → Auth → SMTP*), p. ej. Resend, SendGrid o Amazon SES.
+
+### Cobro y webhook (Stripe; similar para PayPal o Tilopay)
+1. Crea el producto «GeoHogar Plus» con precios mensual y anual; genera un **Payment Link** y ponlo en `GH_CONFIG.checkoutUrl`. `planes.html` agrega `client_reference_id=<uuid del usuario>` y `prefilled_email`.
+2. Crea una Edge Function (`supabase functions new stripe-webhook`) y regístrala en Stripe → *Developers → Webhooks* con los eventos `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+```ts
+// supabase/functions/stripe-webhook/index.ts
+import Stripe from "npm:stripe@16"; import { createClient } from "npm:@supabase/supabase-js@2";
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
+const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+Deno.serve(async (req) => {
+  const ev = await stripe.webhooks.constructEventAsync(await req.text(), req.headers.get("stripe-signature")!, Deno.env.get("STRIPE_WEBHOOK_SECRET")!);
+  if (ev.type === "checkout.session.completed") {
+    const s = ev.data.object as Stripe.Checkout.Session;
+    const sub = await stripe.subscriptions.retrieve(s.subscription as string);
+    await db.from("profiles").update({ plan: "plus", plus_until: new Date(sub.current_period_end * 1000).toISOString(), stripe_customer_id: s.customer })
+      .eq("id", s.client_reference_id);
+  }
+  if (ev.type === "customer.subscription.updated" || ev.type === "customer.subscription.deleted") {
+    const sub = ev.data.object as Stripe.Subscription; const active = ["active", "trialing"].includes(sub.status);
+    await db.from("profiles").update({ plan: active ? "plus" : "gratis", plus_until: new Date(sub.current_period_end * 1000).toISOString() })
+      .eq("stripe_customer_id", sub.customer);
+  }
+  return new Response("ok");
+});
+```
+`supabase secrets set STRIPE_SECRET_KEY=… STRIPE_WEBHOOK_SECRET=…` — las claves viven solo en Supabase, nunca en el repo.
+
+### Qué está bloqueado tras Plus (frontend + RLS)
+Favoritos > 10 (también limitado por política RLS), búsquedas guardadas/alertas por zona (RLS solo permite insertar a Plus), reporte CSV descargable, filtros avanzados de remates/adjudicados y comparación contra la mediana en la ficha. Todo lo demás sigue gratis. El bloqueo en el frontend es solo UX; la protección real son las políticas RLS y, para reportes de pago, generarlos en el servidor.

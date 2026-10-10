@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={darkMode:"class"}</script><script src="js/config.js"></script><script src="js/auth.js"></script><script>Auth.theme()</script><title>GeoHogar Plus · Planes</title></head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+<header class="sticky top-0 z-50 bg-white/90 dark:bg-slate-800/90 backdrop-blur border-b dark:border-slate-700"><div class="max-w-6xl mx-auto flex items-center gap-3 px-4 py-3">
+ <a href="index.html" class="font-bold text-teal-700 dark:text-teal-400">📍 GeoHogar</a><span class="text-xs bg-violet-600 text-white rounded-full px-2">Plus</span>
+ <a href="index.html" class="ml-auto text-sm opacity-80 hover:opacity-100">🗺️ Mapa</a><a id="acct" href="login.html" class="text-sm border rounded-lg px-3 py-1.5 dark:border-slate-600">Iniciar sesión</a></div></header>
+<section class="bg-gradient-to-br from-teal-700 via-teal-600 to-violet-700 text-white"><div class="max-w-6xl mx-auto px-4 py-16 md:py-20 text-center">
+ <p class="uppercase tracking-widest text-xs text-teal-100">GeoHogar Plus</p>
+ <h1 class="text-3xl md:text-5xl font-extrabold mt-2">Encuentra antes que los demás</h1>
+ <p class="mt-4 max-w-2xl mx-auto text-teal-50">Alertas por zona dibujada, remates y adjudicados avanzados, comparación contra la mediana del mercado y reportes descargables.</p>
+ <div class="mt-6 inline-flex bg-white/15 rounded-full p-1 text-sm"><button data-p="mensual" class="per rounded-full px-4 py-1.5">Mensual</button><button data-p="anual" class="per rounded-full px-4 py-1.5">Anual <span id="ahorro" class="text-[10px] bg-amber-300 text-amber-900 rounded-full px-1.5"></span></button></div>
+</div></section>
+<main class="max-w-6xl mx-auto px-4 -mt-10 pb-16">
+ <div class="grid md:grid-cols-2 gap-6">
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 border dark:border-slate-700"><h2 class="text-xl font-bold">Gratis</h2><p class="text-4xl font-extrabold mt-2">$0</p><p class="text-sm opacity-70">Para explorar el mercado</p>
+   <ul class="mt-5 space-y-2 text-sm"><li>✅ Buscar en el mapa con filtros básicos</li><li>✅ Fotos y detalles de cada propiedad</li><li>✅ Contacto por WhatsApp</li><li>✅ Calculadora hipotecaria básica</li><li>✅ Hasta 10 favoritos</li><li>✅ Ver remates y adjudicados en el mapa</li></ul>
+   <a href="index.html" class="mt-6 block text-center border rounded-xl py-2.5 font-semibold dark:border-slate-600">Seguir gratis</a></div>
+  <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 ring-2 ring-violet-600"><span class="absolute -top-3 right-6 bg-violet-600 text-white text-xs rounded-full px-3 py-1">Recomendado</span>
+   <h2 class="text-xl font-bold">Plus ⭐</h2><p class="mt-2"><span id="precio" class="text-4xl font-extrabold"></span> <span id="per" class="opacity-70"></span></p><p class="text-[11px] text-amber-600 font-semibold" id="nota"></p>
+   <ul class="mt-4 space-y-2 text-sm"><li>⭐ Alertas de nuevas propiedades y remates por <b>zona dibujada</b></li><li>⭐ Filtros avanzados: precio por m², plusvalía, remates/adjudicados avanzados, comparación vs mediana</li><li>⭐ Favoritos y búsquedas guardadas <b>ilimitados</b></li><li>⭐ Reportes de mercado descargables (CSV)</li><li>⭐ Comparador de bancos completo</li><li>⭐ Guía de compra con seguimiento</li><li>⭐ Propiedades destacadas para agentes</li></ul>
+   <button id="cta" class="mt-6 w-full bg-violet-600 hover:bg-violet-700 text-white rounded-xl py-3 font-bold">Probar Plus</button><p id="ctaMsg" class="text-xs mt-2 text-center"></p></div>
+ </div>
+ <h2 class="text-2xl font-bold mt-14 mb-4 text-center">Comparación de funciones</h2>
+ <div class="overflow-x-auto bg-white dark:bg-slate-800 rounded-2xl shadow"><table class="w-full text-sm"><thead class="bg-slate-100 dark:bg-slate-700"><tr><th class="text-left p-3">Función</th><th class="p-3">Gratis</th><th class="p-3 text-violet-600">Plus</th></tr></thead><tbody id="tabla"></tbody></table></div>
+ <h2 class="text-2xl font-bold mt-14 mb-4 text-center">Preguntas frecuentes</h2>
+ <div id="faq" class="max-w-3xl mx-auto space-y-2"></div>
+ <div class="mt-14 text-center bg-gradient-to-r from-teal-600 to-violet-600 text-white rounded-2xl p-8"><h3 class="text-2xl font-bold">¿Listo para buscar con ventaja?</h3><button id="cta2" class="mt-4 bg-white text-violet-700 font-bold rounded-xl px-6 py-3">Probar Plus</button></div>
+</main>
+<script>
+const $=i=>document.getElementById(i),P=GH_CONFIG.precios;let per='mensual';
+const ah=Math.round((1-P.anual/(P.mensual*12))*100);$('ahorro').textContent='-'+ah+'%';
+function upd(){document.querySelectorAll('.per').forEach(b=>b.className='per rounded-full px-4 py-1.5 '+(b.dataset.p===per?'bg-white text-teal-800 font-semibold':''));
+ $('precio').textContent='$'+(per==='mensual'?P.mensual:P.anual);$('per').textContent=per==='mensual'?'/ mes':'/ año (≈ $'+(P.anual/12).toFixed(2)+'/mes)';$('nota').textContent='* '+P.nota+' ('+P.moneda+'); el precio final se definirá al lanzar.'}
+document.querySelectorAll('.per').forEach(b=>b.onclick=()=>{per=b.dataset.p;upd()});upd();
+const F=[['Mapa con propiedades, remates y adjudicados','✅','✅'],['Fotos, detalles y WhatsApp','✅','✅'],['Calculadora hipotecaria','Básica','Completa + comparador de todos los bancos'],['Favoritos','Hasta 10','Ilimitados'],['Búsquedas guardadas','—','Ilimitadas'],['Alertas por zona dibujada (propiedades y remates)','—','✅'],['Filtros de remates/adjudicados (fecha, base máx., gravámenes, descuento)','—','✅'],['Precio por m² y comparación vs mediana','—','✅'],['Capa de plusvalía avanzada','—','✅'],['Reportes de mercado descargables','—','✅ CSV'],['Guía de compra con seguimiento','Checklist','Checklist + seguimiento por propiedad'],['Propiedades destacadas (agentes)','—','✅']];
+$('tabla').innerHTML=F.map(([a,b,c],i)=>`<tr class="${i%2?'bg-slate-50 dark:bg-slate-800/60':''}"><td class="p-3">${a}</td><td class="p-3 text-center">${b}</td><td class="p-3 text-center font-semibold text-violet-700 dark:text-violet-300">${c}</td></tr>`).join('');
+const Q=[['¿Puedo cancelar cuando quiera?','Sí. Al cancelar conservas Plus hasta el final del periodo pagado y luego vuelves al plan Gratis sin perder tus favoritos (los primeros 10 siguen visibles).'],['¿Qué medios de pago aceptan?','El cobro se hará con un proveedor externo (Stripe, PayPal o Tilopay); GeoHogar no guarda datos de tarjeta.'],['¿Los precios son definitivos?','No. Los montos mostrados son precios de ejemplo mientras se lanza el servicio.'],['¿Las alertas funcionan para remates?','Sí: dibujas una zona en el mapa y te avisamos por correo cuando aparezcan propiedades o remates nuevos dentro de ella.'],['¿Los datos son oficiales?','Provienen de portales públicos (Encuentra24, Anuntico, edictos de remates y bancos). Siempre confirma en la fuente original y con un abogado.'],['¿Qué pasa con mis datos?','Tu cuenta solo guarda correo, favoritos, búsquedas y alertas. Puedes borrarla cuando quieras desde tu cuenta.']];
+$('faq').innerHTML=Q.map(([q,a])=>`<details class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm"><summary class="font-semibold cursor-pointer">${q}</summary><p class="text-sm mt-2 opacity-80">${a}</p></details>`).join('');
+async function cta(){const u=await Auth.user();if(!u){location.href='login.html?next=planes.html#registro';return}
+ if(GH_CONFIG.checkoutUrl){location.href=GH_CONFIG.checkoutUrl+(GH_CONFIG.checkoutUrl.includes('?')?'&':'?')+'client_reference_id='+encodeURIComponent(u.id)+'&prefilled_email='+encodeURIComponent(u.email)+'&plan='+per;return}
+ if(Auth.demo){await Auth.setDemoPlan('plus');$('ctaMsg').textContent='Modo demo: Plus activado en este navegador (sin cobro).';$('ctaMsg').className='text-xs mt-2 text-center text-emerald-600';setTimeout(()=>location.href='cuenta.html',900)}
+ else $('ctaMsg').textContent='El pago aún no está configurado (CONFIG.checkoutUrl).'}
+$('cta').onclick=cta;$('cta2').onclick=cta;
+Auth.user().then(u=>{if(u){$('acct').textContent=(u.plan==='plus'?'⭐ ':'')+u.nombre;$('acct').href='cuenta.html';if(u.plan==='plus'){$('cta').textContent='Ya tienes Plus ✓';}}});Auth.banner();
+</script></body></html>

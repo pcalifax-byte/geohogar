@@ -160,3 +160,79 @@ WHERE s.images <> '';
 INSERT INTO properties (external_id,source,title,type,price,currency,price_usd,bedrooms,bathrooms,garages,area_m2,lot_m2,province,canton,district,geom,coord_quality)
 VALUES ('demo-1','geohogar','[DEMO] Casa en Escazú','casa',350000,'USD',350000,3,2,2,180,250,'San José','Escazú','San Rafael',
         ST_MakePoint(-84.14,9.918)::geography,'demo');
+
+-- ===================== Cuentas, plan Plus, favoritos, búsquedas y alertas (Supabase) =====================
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  nombre      TEXT,
+  plan        TEXT NOT NULL DEFAULT 'gratis' CHECK (plan IN ('gratis','plus')),
+  plus_until  TIMESTAMPTZ,
+  stripe_customer_id TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+-- crear perfil automáticamente al registrarse
+CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN INSERT INTO public.profiles (id, nombre) VALUES (NEW.id, NEW.raw_user_meta_data->>'nombre') ON CONFLICT DO NOTHING; RETURN NEW; END $$;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+CREATE OR REPLACE FUNCTION public.is_plus(uid UUID) RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND plan = 'plus' AND (plus_until IS NULL OR plus_until > now())) $$;
+
+CREATE TABLE IF NOT EXISTS public.favoritos (
+  user_id     UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  property_id TEXT NOT NULL,             -- id del JSON (ej. 'anun-54882', '32136583', 'rjcr-2938')
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (user_id, property_id)
+);
+CREATE TABLE IF NOT EXISTS public.busquedas_guardadas (
+  id          BIGSERIAL PRIMARY KEY,
+  user_id     UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  nombre      TEXT NOT NULL,
+  filtros     JSONB NOT NULL DEFAULT '{}',
+  zona        GEOGRAPHY(POLYGON,4326),   -- polígono dibujado ("Dibujar zona")
+  alerta      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS busquedas_zona_gix ON public.busquedas_guardadas USING GIST (zona);
+CREATE TABLE IF NOT EXISTS public.alertas (
+  id          BIGSERIAL PRIMARY KEY,
+  busqueda_id BIGINT NOT NULL REFERENCES public.busquedas_guardadas(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  item_id     TEXT NOT NULL,             -- propiedad o remate nuevo
+  item_kind   TEXT NOT NULL CHECK (item_kind IN ('propiedad','remate','adjudicado')),
+  enviada_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (busqueda_id, item_id)
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.favoritos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.busquedas_guardadas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alertas ENABLE ROW LEVEL SECURITY;
+
+-- profiles: cada usuario ve y edita su nombre; plan/plus_until solo los cambia el backend (service_role / webhook)
+CREATE POLICY "perfil propio lectura" ON public.profiles FOR SELECT USING (id = auth.uid());
+CREATE POLICY "perfil propio nombre"  ON public.profiles FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+REVOKE UPDATE (plan, plus_until, stripe_customer_id) ON public.profiles FROM authenticated, anon;
+
+-- favoritos: propios; plan gratis máximo 10
+CREATE POLICY "favoritos propios" ON public.favoritos FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "favoritos borrar"  ON public.favoritos FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "favoritos insertar con límite" ON public.favoritos FOR INSERT WITH CHECK (
+  user_id = auth.uid() AND (public.is_plus(auth.uid()) OR (SELECT count(*) FROM public.favoritos f WHERE f.user_id = auth.uid()) < 10));
+
+-- búsquedas guardadas: solo Plus puede crear
+CREATE POLICY "busquedas propias"    ON public.busquedas_guardadas FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "busquedas borrar"     ON public.busquedas_guardadas FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "busquedas editar"     ON public.busquedas_guardadas FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "busquedas crear plus" ON public.busquedas_guardadas FOR INSERT WITH CHECK (user_id = auth.uid() AND public.is_plus(auth.uid()));
+
+-- alertas: el usuario solo lee las suyas; las inserta el job de alertas (service_role ignora RLS)
+CREATE POLICY "alertas propias" ON public.alertas FOR SELECT USING (user_id = auth.uid());
+
+-- Job de alertas (ej. tras update.py): propiedades nuevas dentro de cada zona guardada
+-- INSERT INTO alertas (busqueda_id,user_id,item_id,item_kind)
+-- SELECT b.id, b.user_id, p.external_id, 'propiedad' FROM busquedas_guardadas b JOIN properties p
+--   ON b.alerta AND (b.zona IS NULL OR ST_Within(p.geom::geometry, b.zona::geometry)) AND p.created_at > now() - interval '1 day'
+-- ON CONFLICT DO NOTHING;

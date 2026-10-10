@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="icon" href="data:,"><title>GeoHogar · Bienes raíces en Costa Rica</title>
-<script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={darkMode:'class'}</script>
+<script src="https://cdn.tailwindcss.com"></script><script src="js/config.js"></script><script src="js/auth.js"></script><script>tailwind.config={darkMode:'class'}</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"><link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <style>html,body,#map{height:100%;margin:0}
 .pb{background:#0f766e;color:#fff;font:600 11px system-ui,sans-serif;padding:2px 7px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 4px #0007;border:1.5px solid #fff;transform:translate(-50%,-50%);display:inline-block;cursor:pointer}
@@ -19,7 +19,7 @@
  <div class="flex gap-2 items-center">
   <b class="text-teal-700 dark:text-teal-400 whitespace-nowrap">📍 GeoHogar</b>
   <input id="q" placeholder="Ciudad, provincia o zona…" class="flex-1 min-w-0 px-3 py-1.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
-  <span id="upd" class="hidden sm:inline text-[10px] bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-2 py-0.5 rounded-full whitespace-nowrap"></span><button id="bGuide" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap" title="Guía de compra">📋<span class="hidden lg:inline"> Guía de compra</span></button><button id="tgFilters" class="md:hidden px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Filtros">⚙️</button>
+  <span id="upd" class="hidden sm:inline text-[10px] bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-2 py-0.5 rounded-full whitespace-nowrap"></span><a href="planes.html" id="bPlus" class="px-2 py-1.5 rounded-lg bg-violet-600 text-white whitespace-nowrap text-xs font-semibold">⭐<span class="hidden sm:inline"> Plus</span></a><a href="login.html" id="bUser" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap flex items-center gap-1" title="Cuenta">👤<span class="hidden lg:inline text-xs">Entrar</span></a><button id="bGuide" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap" title="Guía de compra">📋<span class="hidden lg:inline"> Guía de compra</span></button><button id="tgFilters" class="md:hidden px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Filtros">⚙️</button>
   <button id="tgDark" class="px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Modo oscuro">🌓</button>
  </div>
  <div id="filters" class="hidden md:flex flex-wrap gap-2 items-center mt-2">
@@ -40,7 +40,7 @@
   <button id="bDraw" class="px-2 py-1 rounded-full border dark:border-slate-600">✏️ Dibujar zona</button>
   <button id="bClear" class="hidden px-2 py-1 rounded-full border text-red-600">✖ Borrar zona</button>
   <button id="bCalc" class="px-2 py-1 rounded-full border dark:border-slate-600">🧮 Calculadora</button>
-  <button id="bPub" class="px-3 py-1 rounded-full bg-violet-600 text-white">➕ Publicar propiedad</button>
+  <button id="bSave" class="px-2 py-1 rounded-full border dark:border-slate-600">🔔 Guardar búsqueda <span class="lk text-[10px]">🔒</span></button><button id="bRep" class="px-2 py-1 rounded-full border dark:border-slate-600">⬇️ Reporte <span class="lk text-[10px]">🔒</span></button><button id="bRemAdv" class="px-2 py-1 rounded-full border border-red-600 text-red-700 dark:text-red-300">⚖️ Filtros remates <span class="lk text-[10px]">🔒</span></button><button id="bPub" class="px-3 py-1 rounded-full bg-violet-600 text-white">➕ Publicar propiedad</button>
   <span id="remCount" class="text-xs font-semibold text-red-700 dark:text-red-300"></span><span id="count" class="ml-auto font-semibold"></span><button id="chatClr" class="hidden text-xs text-red-600" onclick="App.chatIds=null;this.classList.add('hidden');App.refresh()">✖ búsqueda del asistente</button>
  </div>
  <div id="hint" class="hidden mt-1 text-xs text-amber-600"></div>
@@ -168,7 +168,7 @@ const UI={
  showCard(p){this.cur=p;const wa='https://wa.me/'+(p.phone?'506'+String(p.phone).replace(/\D/g,'').slice(-8):'')+'?text='+encodeURIComponent(`Hola, me interesa esta propiedad en GeoHogar: ${p.title} (${DataService.full(p)})${p.url?' '+p.url:''}`);
   const badge=p.demo?'<span class="text-[11px] bg-pink-600 text-white px-2 py-0.5 rounded-full">DEMO · propiedad ficticia</span>':p.mine?'<span class="text-[11px] bg-violet-600 text-white px-2 py-0.5 rounded-full">Publicada por ti (local)</span>':'<span class="text-[11px] bg-teal-700 text-white px-2 py-0.5 rounded-full">Anuncio real · '+esc(p.source==='anuntico'?'Anuntico':'Encuentra24')+'</span>';
   const row=(k,v)=>`<div class="opacity-60">${k}</div><div class="col-span-2">${v}</div>`;
-  $('card').innerHTML=`<div class="relative">${this.gallery(p)}<button id="cClose" class="absolute top-2 right-2 bg-white/90 text-black rounded-full w-8 h-8">✕</button></div>
+  $('card').innerHTML=`<div class="relative">${this.gallery(p)}<button id="cClose" class="absolute top-2 right-2 bg-white/90 text-black rounded-full w-8 h-8">✕</button>${Plus.heart(p)}</div>
   <div class="p-4 space-y-2">${badge}<h2 class="font-bold text-lg leading-tight">${esc(p.title)}</h2><div class="text-2xl font-extrabold text-teal-600 dark:text-teal-400">${esc(DataService.full(p))}</div>
   <div class="grid grid-cols-3 gap-2 text-center text-sm [&>div:last-child]:col-span-3">${[['🛏️','Habitaciones',p.beds],['🛁','Baños',p.baths],['📐','m² constr.',p.area],['🚗','Garajes',p.garages],['🌳','m² terreno',p.lot],['👤','Agente',p.agent]].map(([i,l,v])=>`<div class="rounded-lg bg-slate-100 dark:bg-slate-700 p-1.5">${i}<div class="font-bold">${v??'—'}</div><div class="text-[10px] opacity-60">${v==null?'No disponible':l}</div></div>`).join('')}</div>
   <p class="text-sm">${p.desc?esc(p.desc):'<span class="opacity-50">Descripción no disponible (ver anuncio original).</span>'}</p>
@@ -179,12 +179,12 @@ const UI={
   <div class="grid grid-cols-2 gap-2 pt-1"><a target="_blank" rel="noopener" href="${wa}" class="text-center bg-green-600 text-white rounded-lg py-2">💬 WhatsApp</a><button id="cCalc" class="border rounded-lg py-2 dark:border-slate-600">🧮 Calculadora</button>
   ${p.url?`<a target="_blank" rel="noopener" href="${esc(p.url)}" class="text-center bg-slate-700 text-white rounded-lg py-2">🔗 Ver anuncio</a>`:'<span></span>'}<button id="cMore" class="border rounded-lg py-2 dark:border-slate-600">📄 Ficha completa</button><button id="cGuide" class="col-span-2 border rounded-lg py-2 dark:border-slate-600">📋 Guía de compra y cierre</button></div>
   <p class="text-[11px] opacity-60">WhatsApp ${p.phone?"abre el chat con el anunciante":"abre el mensaje con el enlace; tú eliges el contacto"} ${p.phone?'(número publicado en el anuncio).':'(este anuncio no muestra número público).'}</p></div>`;
-  $('card').classList.remove('hidden');$('cClose').onclick=()=>$('card').classList.add('hidden');$('cCalc').onclick=()=>this.calculator(p);$('cGuide')&&($('cGuide').onclick=()=>this.guide(p));$('cMore').onclick=()=>this.details(p)},
+  $('card').classList.remove('hidden');$('cClose').onclick=()=>$('card').classList.add('hidden');$('cCalc').onclick=()=>this.calculator(p);$('cFav')&&($('cFav').onclick=()=>Plus.fav(p));$('cGuide')&&($('cGuide').onclick=()=>this.guide(p));$('cMore').onclick=()=>this.details(p)},
  modal(h){$('mbox').innerHTML='<button id="mClose" class="absolute top-3 right-4 text-xl">✕</button>'+h;$('modal').classList.remove('hidden');$('mClose').onclick=()=>this.close()},
  close(){$('modal').classList.add('hidden')},
  details(p){const r=[['ID',p.id],['Tipo',p.type],['Precio',DataService.full(p)],['Habitaciones',p.beds],['Baños',p.baths],['Construcción (m²)',p.area],['Terreno (m²)',p.lot],['Garajes',p.garages],['Agente / vendedor',p.agent],['Teléfono',p.phone],['Año',p.year],['Amenidades',(p.amenities||[]).join(', ')],['Ubicación',p.location],['Provincia',p.province],['Lat / Lon',`${(+p.lat).toFixed(5)}, ${(+p.lon).toFixed(5)}`],['Coordenadas',p.coord],['Fuente',p.source]];
   this.modal(`<h2 class="text-xl font-bold pr-6">${esc(p.title)}</h2><div class="grid grid-cols-3 gap-1 text-sm mt-3">${r.map(([k,v])=>`<div class="opacity-60">${k}</div><div class="col-span-2">${this.nd(v)}</div>`).join('')}</div>${p.url?`<a class="block mt-3 text-teal-600 underline break-all text-sm" target="_blank" href="${esc(p.url)}">${esc(p.url)}</a>`:''}<p class="text-xs opacity-60 mt-3">${p.demo?'Propiedad DEMO ficticia para mostrar la interfaz.':'Datos recopilados de '+(p.source==='anuntico'?'Anuntico':'Encuentra24')+' el '+EMBED.builtAt+'. Confirma precio y disponibilidad en el anuncio.'}</p>`)},
- compare(p){const m=MERCADO&&MERCADO.por_tipo;if(!m||!p.price)return'';let ref=null,lbl='';const t=p.type==='Casa/Terreno de playa'?'Casa':p.type;
+ compare(p){const m=MERCADO&&MERCADO.por_tipo;if(!m||!p.price)return'';if(!Plus.plus)return `<a href="planes.html" class="block text-xs rounded-lg px-2 py-1 bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-200">🔒 ¿Está caro o barato? Compara con la mediana de su zona con <b>Plus ⭐</b></a>`;let ref=null,lbl='';const t=p.type==='Casa/Terreno de playa'?'Casa':p.type;
   if(t==='Casa'&&MERCADO.casas_por_provincia&&MERCADO.casas_por_provincia[p.province]){ref=MERCADO.casas_por_provincia[p.province];lbl='casas en '+p.province}
   else if(m[t]){ref=(m[t].por_provincia||{})[p.province]||m[t].mediana;lbl=(t==='Apartamento'?'apartamentos':t==='Casa'?'casas':'lotes')+((m[t].por_provincia||{})[p.province]?' en '+p.province:' (nacional)')}
   if(!ref)return'';const crc=p.currency==='CRC'?p.price:p.price*CONFIG.USD_CRC,d=(crc/ref-1)*100;
@@ -282,6 +282,38 @@ const App={all:[],visible:[],
   const nd=this.visible.filter(p=>p.demo).length;$('upd').classList.remove('hidden');$('chatClr').classList.toggle('hidden',!this.chatIds);$('count').textContent=`${this.visible.length} de ${this.all.length} propiedades${nd?` (${nd} demo)`:''}`}
 };
 
+
+/* ===== Cuenta, favoritos y funciones Plus ===== */
+const Plus={user:null,plus:false,favs:[],rf:null,
+ async init(){this.user=await Auth.user();this.plus=!!this.user&&this.user.plan==='plus';this.favs=await Auth.favoritos();
+  const b=$('bUser');if(this.user){b.href='cuenta.html';b.innerHTML=`<span class="w-6 h-6 rounded-full ${this.plus?'bg-violet-600':'bg-teal-600'} text-white text-xs font-bold flex items-center justify-center">${esc(this.user.nombre[0].toUpperCase())}</span><span class="hidden lg:inline text-xs">${esc(this.user.nombre)}${this.plus?' ⭐':''}</span>`}
+  if(this.plus){$('bPlus').innerHTML='⭐<span class="hidden sm:inline"> Plus activo</span>';document.querySelectorAll('.lk').forEach(x=>x.remove())}
+  $('bSave').onclick=()=>this.gate('Búsquedas guardadas y alertas por zona',()=>this.save());$('bRep').onclick=()=>this.gate('Reportes de mercado descargables',()=>this.report());
+  $('bRemAdv').onclick=()=>this.gate('Filtros avanzados de remates y adjudicados',()=>this.remAdv());Auth.banner()},
+ upsell(f){UI.modal(`<div class="text-center"><div class="text-5xl">🔒</div><h2 class="text-xl font-bold mt-2">${esc(f)} es parte de GeoHogar Plus</h2><p class="text-sm opacity-80 mt-2">Alertas por zona dibujada, filtros avanzados, favoritos ilimitados, reportes y más.</p>
+  <div class="mt-4 flex gap-2 justify-center"><a href="planes.html" class="bg-violet-600 text-white rounded-xl px-4 py-2 font-semibold">Ver planes ⭐</a>${this.user?'':'<a href="login.html?next=index.html" class="border rounded-xl px-4 py-2">Iniciar sesión</a>'}</div>${Auth.demo?'<p class="text-[11px] mt-3 text-amber-600">Modo demo: puedes activar Plus gratis desde la página de planes.</p>':''}</div>`)},
+ gate(f,fn){this.plus?fn():this.upsell(f)},
+ heart(p){const on=this.favs.includes(p.id);return `<button id="cFav" class="absolute top-2 right-12 bg-white/90 rounded-full w-8 h-8 text-lg" title="Favorito">${on?'❤️':'🤍'}</button>`},
+ async fav(p){try{const on=await Auth.toggleFavorito(p.id);this.favs=await Auth.favoritos();$('cFav').textContent=on?'❤️':'🤍'}
+  catch(e){if(e.code==='LIMITE')this.upsell(`Más de ${GH_CONFIG.limiteFavoritosGratis} favoritos`);else alert(e.message)}},
+ async save(){const nombre=prompt('Nombre de la búsqueda (se creará una alerta por correo):','Mi zona');if(!nombre)return;
+  try{await Auth.guardarBusqueda({nombre,filtros:{...Filters.state,polygon:undefined,max:Filters.state.max===Infinity?null:Filters.state.max},polygon:Filters.state.polygon,alerta:true});UI.modal(`<h2 class="text-lg font-bold">🔔 Búsqueda guardada</h2><p class="text-sm mt-2">«${esc(nombre)}» ${Filters.state.polygon?'con tu zona dibujada':''}. ${Auth.demo?'(Modo demo: guardada en este navegador; las alertas por correo requieren el backend.)':'Te avisaremos por correo de propiedades y remates nuevos.'}</p>`)}catch(e){alert(e.message)}},
+ report(){const v=App.visible,rows=[['id','titulo','tipo','precio','moneda','precio_usd','m2','precio_m2_usd','provincia','ubicacion','estado','url']];
+  v.forEach(p=>{const u=DataService.toUSD(p),m=p.area||p.lot;rows.push([p.id,p.title,p.type,p.price,p.currency,u&&Math.round(u),m,u&&m?Math.round(u/m):'',p.province,p.location,p.status||'activa',p.url||''])});
+  const by={};v.forEach(p=>{const u=DataService.toUSD(p);if(!u)return;const k=p.province+'|'+p.type;(by[k]=by[k]||[]).push(u)});
+  rows.push([]);rows.push(['RESUMEN','provincia|tipo','n','mediana_usd']);Object.entries(by).forEach(([k,a])=>{a.sort((x,y)=>x-y);rows.push(['',k,a.length,Math.round(a[a.length>>1])])});
+  const csv=rows.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='geohogar_reporte_'+new Date().toISOString().slice(0,10)+'.csv';a.click()},
+ remAdv(){const r=this.rf||{};const f=(id,l,t,v)=>`<label class="block text-sm">${l}<input id="${id}" type="${t}" value="${v??''}" class="w-full mt-1 px-2 py-1 rounded border dark:bg-slate-700 dark:border-slate-600"></label>`;
+  UI.modal(`<h2 class="text-xl font-bold">⚖️ Filtros avanzados de remates / adjudicados ⭐</h2><div class="grid grid-cols-2 gap-3 mt-3">${f('raH','Remate antes de','date',r.hasta)}${f('raB','Base / precio máx. (₡)','number',r.max)}${f('raD','Descuento mín. adjudicados (%)','number',r.desc)}
+  <label class="block text-sm">Tipo<select id="raT" class="w-full mt-1 px-2 py-1 rounded border dark:bg-slate-700"><option value="">Todos</option>${['Casa','Lote/Terreno','Finca','Inmueble'].map(t=>`<option ${r.tipo===t?'selected':''}>${t}</option>`).join('')}</select></label>
+  <label class="col-span-2 flex gap-2 text-sm"><input id="raL" type="checkbox" ${r.libre?'checked':''}> Solo libres de gravámenes</label><label class="col-span-2 flex gap-2 text-sm"><input id="raE" type="checkbox" ${r.exacta?'checked':''}> Solo con coordenadas SNIT exactas</label></div>
+  <div class="mt-4 flex gap-2 justify-end"><button id="raC" class="border rounded-lg px-3 py-1.5">Limpiar</button><button id="raA" class="bg-red-700 text-white rounded-lg px-4 py-1.5">Aplicar</button></div>`);
+  const apply=c=>{this.rf=c?null:{hasta:$('raH').value,max:+$('raB').value||null,desc:+$('raD').value||null,tipo:$('raT').value,libre:$('raL').checked,exacta:$('raE').checked};
+   ['remate','adjudicado'].forEach(k=>{Remates.on[k]=true;document.querySelector(`.rchip[data-k=${k}]`).classList.add('on')});Remates.render(MapController.map);UI.close()};
+  $('raA').onclick=()=>apply(false);$('raC').onclick=()=>apply(true)},
+ remOk(x){const r=this.rf;if(!r)return true;const nx=x.kind==='remate'?(Remates.next(x)||[])[0]:null,v=x.kind==='remate'?((Remates.next(x)||[])[1]||x.base1):x.precio;
+  return (!r.hasta||x.kind!=='remate'||(nx&&nx<=r.hasta))&&(!r.max||(v&&v*(x.moneda==='USD'?CONFIG.USD_CRC:1)<=r.max))&&(!r.desc||x.kind!=='adjudicado'||(x.descuento||0)>=r.desc)&&(!r.tipo||x.tipo===r.tipo)&&(!r.libre||x.kind!=='remate'||/^libre/i.test(x.gravamen||''))&&(!r.exacta||x.coord==='exacta')}
+};
 /* ===== Remates judiciales y bienes adjudicados ===== */
 const Remates={layer:null,on:{remate:false,adjudicado:false},filter:null,
  fmtC:(v,c)=>v==null?'—':(c==='USD'?'$':'₡')+fmt(v),
@@ -290,7 +322,7 @@ const Remates={layer:null,on:{remate:false,adjudicado:false},filter:null,
  short(x){const v=x.kind==='remate'?(this.next(x)||[0,x.base1])[1]:x.precio;if(!v)return'?';return(x.moneda==='USD'?'$':'₡')+(v>=1e6?(+(v/1e6).toFixed(v>=1e7?0:1))+'M':Math.round(v/1e3)+'K')},
  init(map){this.layer=L.markerClusterGroup({iconCreateFunction:c=>L.divIcon({html:`<div class="cl" style="border-color:#b91c1c">⚖${c.getChildCount()}</div>`,className:'',iconSize:[40,40]})});
   document.querySelectorAll('.rchip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;this.on[k]=b.classList.toggle('on');this.filter=null;this.render(map)})},
- items(){const s=Filters.state,q=Filters.norm(s.q);return (REMATES.items||[]).filter(x=>x.lat&&this.on[x.kind]&&(!this.filter||this.filter.has(x.id))&&(!s.prov||x.provincia===s.prov)&&(!q||Filters.norm([x.titulo,x.provincia,x.canton,x.distrito,x.resumen].join(' ')).includes(q)))},
+ items(){const s=Filters.state,q=Filters.norm(s.q);return (REMATES.items||[]).filter(x=>x.lat&&this.on[x.kind]&&(!this.filter||this.filter.has(x.id))&&Plus.remOk(x)&&(!s.prov||x.provincia===s.prov)&&(!q||Filters.norm([x.titulo,x.provincia,x.canton,x.distrito,x.resumen].join(' ')).includes(q)))},
  render(map){this.layer.clearLayers();const it=this.items();
   this.layer.addLayers(it.map(x=>L.marker([x.lat,x.lon],{icon:L.divIcon({className:'',html:`<span class="pb ${x.kind==='remate'?'rem':'adj'}">${x.kind==='remate'?'⚖️':'🏦'} ${this.short(x)}</span>`,iconSize:[0,0]})}).on('click',()=>this.card(x))));
   if(it.length||this.on.remate||this.on.adjudicado){if(!map.hasLayer(this.layer))this.layer.addTo(map)}else map.removeLayer(this.layer);
@@ -390,5 +422,5 @@ async function loadData(){const g=n=>fetch(CONFIG.dataBase+n+'?v='+Date.now().to
  FX=fx;TASAS=tasas;MERCADO=mercado;META=meta;CONFIG.USD_CRC=fx.referencia||fx.venta||455;
  $('fxLbl').textContent=`₡→$ 1 USD ≈ ${CONFIG.USD_CRC} CRC (BCCR compra ${fx.compra} / venta ${fx.venta}, ${fx.fecha})`;
  $('upd').textContent='Actualizado: '+new Date(meta.last_updated).toLocaleString('es-CR',{dateStyle:'medium',timeStyle:'short'})}
-window.addEventListener('DOMContentLoaded',async()=>{try{await loadData()}catch(e){alert('No se pudieron cargar los datos: '+e.message);return}App.init();Chat.init()});
+window.addEventListener('DOMContentLoaded',async()=>{try{await loadData()}catch(e){alert('No se pudieron cargar los datos: '+e.message);return}App.init();Chat.init();Plus.init()});
 </script></body></html>

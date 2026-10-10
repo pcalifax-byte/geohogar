@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={darkMode:"class"}</script><script src="js/config.js"></script><script src="js/auth.js"></script><script>Auth.theme()</script><title>Iniciar sesión · GeoHogar</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></head>
+<body class="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+<div class="min-h-screen grid md:grid-cols-2">
+ <aside class="relative hidden md:block overflow-hidden bg-teal-800">
+  <div id="bgmap" class="absolute inset-0 opacity-60"></div>
+  <div class="absolute inset-0 bg-gradient-to-br from-teal-900/90 via-teal-800/60 to-slate-900/80"></div>
+  <div class="relative h-full flex flex-col justify-between p-10 text-white">
+   <a href="index.html" class="text-2xl font-bold">📍 GeoHogar</a>
+   <div><h1 class="text-4xl font-extrabold leading-tight">Encuentra tu próximo hogar<br>en el mapa de Costa Rica</h1>
+    <ul class="mt-6 space-y-2 text-teal-50"><li>🗺️ Más de 1 000 propiedades reales en el mapa</li><li>⚖️ Remates judiciales y bienes adjudicados</li><li>🧮 Calculadora y comparador de bancos</li><li>❤️ Guarda favoritos y búsquedas</li></ul></div>
+   <p class="text-xs text-teal-100/80">Datos de portales públicos · © OpenStreetMap</p>
+  </div>
+ </aside>
+ <main class="flex items-center justify-center p-5 sm:p-10">
+  <div class="w-full max-w-md">
+   <div class="flex items-center justify-between mb-6"><a href="index.html" class="text-xl font-bold text-teal-700 dark:text-teal-400">📍 GeoHogar</a><a href="index.html" class="text-sm opacity-70 hover:opacity-100">← Volver al mapa</a></div>
+   <div id="demoNote" class="hidden mb-4 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100 text-sm p-3">🧪 <b>Modo demostración:</b> el inicio de sesión no es real. Las cuentas se guardan solo en este navegador.</div>
+   <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
+    <div class="grid grid-cols-2 bg-slate-100 dark:bg-slate-700 rounded-xl p-1 text-sm font-semibold mb-5">
+     <button data-t="in" class="tab rounded-lg py-2">Iniciar sesión</button><button data-t="up" class="tab rounded-lg py-2">Crear cuenta</button></div>
+    <form id="f" class="space-y-3">
+     <label id="wNombre" class="hidden block text-sm">Nombre<input id="nombre" autocomplete="name" class="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-700 dark:border-slate-600"></label>
+     <label class="block text-sm">Correo electrónico<input id="email" type="email" required autocomplete="email" placeholder="tu@correo.com" class="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-700 dark:border-slate-600"></label>
+     <label id="wPw" class="block text-sm">Contraseña<input id="pw" type="password" minlength="6" autocomplete="current-password" class="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-700 dark:border-slate-600"></label>
+     <div class="flex justify-end"><button type="button" id="forgot" class="text-xs text-teal-700 dark:text-teal-400 hover:underline">¿Olvidaste tu contraseña?</button></div>
+     <button id="go" class="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-lg py-2.5 font-semibold">Entrar</button>
+    </form>
+    <div class="flex items-center gap-3 my-4 text-xs opacity-60"><div class="flex-1 h-px bg-current"></div>o<div class="flex-1 h-px bg-current"></div></div>
+    <button id="magic" class="w-full border border-teal-600 text-teal-700 dark:text-teal-300 rounded-lg py-2.5 font-semibold">✉️ Entrar con enlace mágico por correo</button>
+    <p id="msg" class="text-sm mt-4 min-h-[1.25rem]"></p>
+   </div>
+   <p class="text-xs text-center mt-4 opacity-70">¿Quieres más? <a href="planes.html" class="text-violet-600 font-semibold">Conoce GeoHogar Plus ⭐</a></p>
+  </div>
+ </main>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=i=>document.getElementById(i);let mode=location.hash==='#registro'?'up':'in';
+if(Auth.demo)$('demoNote').classList.remove('hidden');
+try{const m=L.map('bgmap',{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false}).setView([9.9,-84.1],9);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m)}catch(e){}
+function setMode(t){mode=t;document.querySelectorAll('.tab').forEach(b=>b.className='tab rounded-lg py-2 '+(b.dataset.t===t?'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-300':'opacity-70'));
+ $('wNombre').classList.toggle('hidden',t!=='up');$('forgot').parentNode.classList.toggle('hidden',t==='up');$('go').textContent=t==='up'?'Crear cuenta':'Entrar';$('pw').autocomplete=t==='up'?'new-password':'current-password';$('msg').textContent=''}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setMode(b.dataset.t));setMode(mode);
+const say=(t,ok)=>{$('msg').textContent=t;$('msg').className='text-sm mt-4 '+(ok?'text-emerald-600':'text-red-600')};
+const done=r=>{if(r==='ok'){say('¡Listo! Volviendo al mapa…',true);setTimeout(()=>location.href=new URLSearchParams(location.search).get('next')||GH_CONFIG.redirectTras,700)}else say(r,true)};
+$('f').onsubmit=async e=>{e.preventDefault();const em=$('email').value.trim(),pw=$('pw').value;if(pw.length<6)return say('La contraseña debe tener al menos 6 caracteres.');
+ try{done(mode==='up'?await Auth.signUp(em,pw,$('nombre').value.trim()):await Auth.signIn(em,pw))}catch(x){say(x.message||'Error')}};
+$('magic').onclick=async()=>{const em=$('email').value.trim();if(!em)return say('Escribe tu correo primero.');try{const r=await Auth.magicLink(em);Auth.demo?done('ok'):say(r,true)}catch(x){say(x.message)}};
+$('forgot').onclick=async()=>{const em=$('email').value.trim();if(!em)return say('Escribe tu correo y vuelve a tocar «¿Olvidaste tu contraseña?».');try{say(await Auth.resetPassword(em),true)}catch(x){say(x.message)}};
+Auth.user().then(u=>{if(u)say('Ya iniciaste sesión como '+u.email+'. Puedes volver al mapa.',true)});
+</script></body></html>
