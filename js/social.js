@@ -5,7 +5,7 @@
   async function sb() {
     if (Auth.demo) return null;
     const c = await Auth.client();
-    if (ready === null) ready = c.from('votos').select('listing_id').limit(1).then(r => !r.error || r.error.code === 'PGRST301', () => false);
+    if (ready === null) ready = c.rpc('mas_gustados', { n: 1 }).then(r => !r.error, () => false);
     return (await ready) ? c : null;
   }
   async function me() { const u = await Auth.user(); return u && !u.demo ? u : null }
