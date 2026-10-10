@@ -1,0 +1,190 @@
+{
+ "version": 1,
+ "intents": [
+  {
+   "id": "mapa",
+   "keywords": [
+    "mapa",
+    "usar",
+    "como funciona",
+    "marcadores",
+    "clusters",
+    "navegar",
+    "zoom"
+   ],
+   "answer": "El mapa muestra cada propiedad con su precio. Los círculos con número agrupan varias: haz zoom o clic para separarlas. Toca un precio para abrir la ficha con fotos, detalles, WhatsApp y calculadora. Colores: verde = coordenadas exactas, ámbar = aproximadas, rosa = demo, gris = vendida/retirada."
+  },
+  {
+   "id": "filtros",
+   "keywords": [
+    "filtro",
+    "filtrar",
+    "buscar",
+    "busqueda",
+    "tipo",
+    "provincia",
+    "precio",
+    "habitaciones",
+    "estado"
+   ],
+   "answer": "Arriba tienes: búsqueda por texto (ciudad/zona), tipo, provincia, habitaciones, amenidades (selección múltiple), fuente (reales/demo), estado (activas o vendidas/retiradas) y el control de precio máximo en USD. En móvil, toca ⚙️ para mostrarlos. También puedes escribirme algo como «casa en Heredia de 3 habitaciones hasta 200 mil dólares»."
+  },
+  {
+   "id": "dibujar",
+   "keywords": [
+    "dibujar",
+    "zona",
+    "poligono",
+    "area del mapa",
+    "dibujo"
+   ],
+   "answer": "Pulsa ✏️ Dibujar zona, haz clic en el mapa para marcar los vértices y cierra en el primer punto. Solo verás las propiedades dentro del polígono. Usa ✖ Borrar zona para quitarlo."
+  },
+  {
+   "id": "publicar",
+   "keywords": [
+    "publicar",
+    "anunciar",
+    "vender mi casa",
+    "subir propiedad",
+    "agregar propiedad"
+   ],
+   "answer": "Pulsa ➕ Publicar propiedad, llena el formulario, toca 📍 Elegir ubicación y haz clic en el mapa. Por ahora se guarda solo en tu navegador (localStorage)."
+  },
+  {
+   "id": "hipoteca",
+   "keywords": [
+    "hipoteca",
+    "credito",
+    "prestamo",
+    "cuota",
+    "financiamiento",
+    "calculadora",
+    "prima",
+    "banco",
+    "bancos",
+    "tasa",
+    "tasas"
+   ],
+   "answer": "Abre 🧮 Calculadora (o desde la ficha de una propiedad). Elige moneda, prima, plazo e ingreso opcional: verás la cuota, el comparador de bancos (BAC, BCR, BN, Mucap, Mutuales, Scotiabank/Davibank) y si la cuota cabe en el 30–40% de tu ingreso. Las tasas de bancos son reportadas por el usuario: confírmalas con el banco y compara la TITA."
+  },
+  {
+   "id": "tbp",
+   "keywords": [
+    "tbp",
+    "tasa basica",
+    "tasa básica pasiva",
+    "tita"
+   ],
+   "answer": "La TBP (Tasa Básica Pasiva) la calcula el BCCR; muchos créditos en colones pasan a TBP + margen tras el periodo fijo. La TITA es la tasa total anual que incluye comisiones y seguros: úsala para comparar bancos."
+  },
+  {
+   "id": "gastos",
+   "keywords": [
+    "gastos",
+    "cierre",
+    "notario",
+    "honorarios",
+    "traspaso",
+    "timbres",
+    "escritura",
+    "formalizacion",
+    "costos"
+   ],
+   "answer": "Gastos de cierre aproximados: impuesto de traspaso 1,5%, honorarios notariales 1–1,5% + 13% IVA, timbres y registro 0,5–0,8%, estudio registral ₡50–150 mil. Total ≈ 3,5–4,5% del precio, más formalización bancaria 2–3,5% si hay crédito. La calculadora te da el desglose (información general reportada por el usuario)."
+  },
+  {
+   "id": "impuestos",
+   "keywords": [
+    "impuesto",
+    "bienes inmuebles",
+    "solidario",
+    "municipal",
+    "trimestral"
+   ],
+   "answer": "Impuesto de bienes inmuebles: 0,25% anual del valor, pagado trimestralmente en la municipalidad. Impuesto solidario: aplica si la construcción supera ~₡143M (0,25–0,55%). En condominio suma la cuota condominal y los seguros."
+  },
+  {
+   "id": "documentos",
+   "keywords": [
+    "documentos",
+    "papeles",
+    "certificacion",
+    "plano",
+    "catastro",
+    "uso de suelo",
+    "agua",
+    "due diligence",
+    "estudio de titulos",
+    "revisar"
+   ],
+   "answer": "Antes de comprar revisa: certificación literal y estudio de títulos (Registro Nacional), plano catastrado, uso de suelo, disponibilidad de agua (AyA/ASADA), impuestos municipales al día, acceso legal/servidumbre, permisos de construcción y, en costa, zona marítimo terrestre. Está en 📋 Guía de compra con checklist guardado por propiedad."
+  },
+  {
+   "id": "cierre",
+   "keywords": [
+    "proceso",
+    "pasos",
+    "cuanto tarda",
+    "inscripcion",
+    "registro nacional",
+    "opcion de compra",
+    "escrow",
+    "fideicomiso"
+   ],
+   "answer": "Proceso de cierre (30–90 días): 1) estudio de títulos, 2) opción/promesa de compraventa con depósito, 3) firma de escritura ante notario, 4) pago del traspaso 1,5%, 5) inscripción en el Registro Nacional (2–6 semanas), 6) traspaso municipal, 7) cambio de servicios. Usa abogado propio y escrow; no pagues todo antes de la escritura. Información general, no asesoría legal."
+  },
+  {
+   "id": "amenidades",
+   "keywords": [
+    "amenidades",
+    "piscina",
+    "gimnasio",
+    "seguridad",
+    "jardin",
+    "bbq",
+    "garaje",
+    "condominio"
+   ],
+   "answer": "En el filtro Amenidades puedes elegir varias (casa y condominio). En los anuncios reales se detectan por palabras clave en la descripción, así que pueden faltar o haber falsos positivos: confirma en el anuncio."
+  },
+  {
+   "id": "cambio",
+   "keywords": [
+    "tipo de cambio",
+    "dolar",
+    "dolares",
+    "colones",
+    "cambio",
+    "conversion"
+   ],
+   "answer": "Uso el tipo de cambio de referencia del BCCR (se actualiza a diario con el script). Los precios en ₡ se convierten a USD con ese valor solo para filtrar y comparar; es aproximado."
+  },
+  {
+   "id": "datos",
+   "keywords": [
+    "de donde",
+    "fuente",
+    "datos",
+    "actualiza",
+    "actualizado",
+    "vendida",
+    "retirada",
+    "real",
+    "demo"
+   ],
+   "answer": "Los anuncios reales vienen de Encuentra24 y Anuntico; un script diario revisa si siguen activos (vendida/retirada) y actualiza tipo de cambio y TBP. Las propiedades [DEMO] son ficticias para mostrar la app. La fecha está en el distintivo «Actualizado»."
+  }
+ ],
+ "saludo": "¡Hola! Soy el Asistente GeoHogar 🏡. Puedo buscar propiedades por ti («apartamento en Escazú con piscina hasta $250 mil») o explicarte hipotecas, gastos de cierre y documentos.",
+ "chips": [
+  "Casas en Cartago hasta ₡100 millones",
+  "Apartamento con piscina en San José",
+  "¿Cuánto son los gastos de cierre?",
+  "Comparar bancos",
+  "Proceso de cierre",
+  "¿Cómo dibujo una zona?",
+  "Hablar con un agente"
+ ],
+ "fallback": "No estoy seguro de haber entendido. Prueba con una búsqueda («casa 3 habitaciones en Heredia hasta 200 mil dólares») o elige un tema:"
+}

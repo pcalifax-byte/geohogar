@@ -9,3 +9,6 @@ Aplicación web de bienes raíces en Costa Rica con navegación 100% centrada en
 - Backend y escalado: ver `BACKEND.md`.
 
 ![Vista de escritorio](app_preview_desktop.png)
+
+## Datos y actualización
+Los datos viven en `data/` y se actualizan con `python3 scripts/update.py` (commit + push solo si hay cambios). Ver `BACKEND.md` §9–10.

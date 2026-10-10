@@ -112,3 +112,40 @@ DataService.addProperty  = async p => (await sb.from('properties').insert(p).sel
 - Tipo de cambio: el frontend usa un valor **fijo aproximado (1 USD = 455 CRC, referencia BCCR 10 oct 2026 aportada por el usuario)**. En producción, calcula `price_usd` con un job diario usando el tipo de cambio del BCCR.
 - Plusvalía: la capa es una coropleta de **mediana de precio pedido de casas por provincia** (Anuntico, oct 2026) sobre límites de geoBoundaries (ADM1). Las zonas de crecimiento resaltadas son referenciales. Guárdalas en `zones` (`kind='provincia'` con `props->>'median_crc'`, `kind='plusvalia'`).
 - Las 40 propiedades `is_demo=true` son ficticias y no deben publicarse en producción.
+
+## 9. Datos en `data/` y actualización diaria
+El frontend ya no trae datos embebidos: `index.html` carga por `fetch` los archivos de `data/`:
+
+| Archivo | Contenido |
+|---|---|
+| `propiedades.json` | Anuncios (reales + demo) con `status` (activa/vendida/retirada), `status_fecha` y `amenidades` |
+| `tipo_cambio.json` | Compra/venta BCCR y fecha |
+| `tasas.json` | TBP (BCCR) y tasas hipotecarias por banco (`verificado`, `fuente`, `estado_verificacion`) |
+| `mercado.json` | Medianas de precio pedido por tipo y por provincia (Anuntico) |
+| `capas.json` | Límites de provincias, coropleta y puntos de interés |
+| `faq.json` | Base de conocimiento del Asistente |
+| `meta.json` | `last_updated` (badge «Actualizado») |
+
+Actualización: `python3 scripts/update.py` (ver docstring). Hace commit + push **solo si cambió algo en `data/`** y deja un resumen en `scripts/last_run.json`. Para programarlo (cron diario 6:00 CR = 12:00 UTC):
+```
+0 12 * * * cd /workspace/geohogar-repo && git pull -q && python3 scripts/update.py >> scripts/update.log 2>&1
+```
+Para leer la tasa de un banco automáticamente, agrega en `tasas.json` → `bancos[i]` los campos `url_tasas` (página pública) y `patron` (regex con un grupo numérico, ej. `"vivienda[^%]{0,80}?(\\d{1,2}[.,]\\d{1,2})\\s?%"`). Si no se puede leer, se conserva el dato anterior.
+
+Amenidades: `scripts/amenidades.py` (catálogo casa/condominio, sinónimos, sin acentos). El mismo extractor se aplica a anuncios nuevos.
+
+## 10. Asistente GeoHogar (chatbot) y conexión a un LLM
+Hoy funciona 100% en el navegador: intenciones por palabras clave (sin acentos, tolerancia a errores de 1 letra) sobre `data/faq.json` y un parser de búsqueda (tipo, provincia/cantón, habitaciones, precio mín/máx en $ o ₡, «millones», «mil», amenidades) que aplica filtros al mapa.
+
+Para conectar un LLM define `CONFIG.chatApi` (URL). El frontend envía:
+```json
+POST {chatApi}  {"message":"texto del usuario","filters":{...estado actual...},"selected":"id-propiedad-o-null"}
+```
+y espera `{"reply":"texto", "filters":{"type":"Casa","prov":"Heredia","beds":3,"max":200000,"amen":["piscina"]}}` (ambos opcionales). Si falla, usa el motor local. Ejemplo FastAPI:
+```python
+@app.post("/chat")
+async def chat(body: dict):
+    # llama a tu LLM con un prompt de sistema + faq.json + herramientas (búsqueda en PostGIS)
+    return {"reply": "Encontré 12 casas en Heredia…", "filters": {"type": "Casa", "prov": "Heredia"}}
+```
+Mantén la clave del LLM en el servidor, nunca en el frontend. `CONFIG.whatsappSoporte` define el número de soporte (vacío = WhatsApp sin número).

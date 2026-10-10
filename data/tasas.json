@@ -1,0 +1,98 @@
+{
+ "tbp": {
+  "valor": 3.57,
+  "fecha": "2026-10-10",
+  "fuente": "BCCR indicador 423 (Tasa básica pasiva)",
+  "verificado": true
+ },
+ "fecha_verificacion": null,
+ "bancos": [
+  {
+   "id": "bac",
+   "nombre": "BAC Credomatic",
+   "crc": 8.0,
+   "usd": 7.25,
+   "max_financ_crc": 90,
+   "max_financ_usd": 90,
+   "plazo_max": 30,
+   "tipo": "desde (tasa inicial)",
+   "notas": "Hasta 90% de financiamiento, 30 años.",
+   "fuente": "reportado por el usuario, confirmar con el banco",
+   "verificado": false,
+   "url": "https://www.baccredomatic.com/es-cr"
+  },
+  {
+   "id": "bcr",
+   "nombre": "Banco de Costa Rica (BCR)",
+   "crc": 8.0,
+   "usd": null,
+   "max_financ_crc": 95,
+   "max_financ_usd": 85,
+   "plazo_max": 30,
+   "tipo": "desde ~8%, tramo fijo 1/2/5/8 años",
+   "notas": "Promo: 0% comisión de formalización + avalúo gratis para las primeras 400 operaciones, hasta 30 nov 2026.",
+   "fuente": "reportado por el usuario, confirmar con el banco",
+   "verificado": false,
+   "url": "https://www.bancobcr.com"
+  },
+  {
+   "id": "bn",
+   "nombre": "Banco Nacional (BN)",
+   "crc": 8.0,
+   "usd": null,
+   "max_financ_crc": 95,
+   "max_financ_usd": null,
+   "plazo_max": 30,
+   "tipo": "desde ~8%",
+   "notas": "Hasta 95%, 30 años; opción con bono de vivienda BANHVI.",
+   "fuente": "reportado por el usuario, confirmar con el banco",
+   "verificado": false,
+   "url": "https://www.bncr.fi.cr"
+  },
+  {
+   "id": "mucap",
+   "nombre": "Mucap",
+   "crc": 7.95,
+   "usd": null,
+   "max_financ_crc": 100,
+   "max_financ_usd": null,
+   "plazo_max": 30,
+   "tipo": "7,95% fija 36 meses, luego TBP + 4,95%",
+   "spread_tbp": 4.95,
+   "fijo_meses": 36,
+   "notas": "Hasta 90–100% con bono.",
+   "fuente": "reportado por el usuario, confirmar con el banco",
+   "verificado": false,
+   "url": "https://www.mucap.fi.cr"
+  },
+  {
+   "id": "mutuales",
+   "nombre": "Mutuales (Grupo Mutual, etc.)",
+   "crc": 9.0,
+   "crc_rango": [
+    8,
+    10
+   ],
+   "usd": null,
+   "max_financ_crc": null,
+   "plazo_max": 30,
+   "tipo": "8–10% (se usa 9% promedio)",
+   "notas": "Rango típico 8–10%.",
+   "fuente": "reportado por el usuario, confirmar con el banco",
+   "verificado": false
+  },
+  {
+   "id": "scotia",
+   "nombre": "Scotiabank / Davibank",
+   "crc": null,
+   "usd": null,
+   "max_financ_crc": 90,
+   "max_financ_usd": 90,
+   "plazo_max": 30,
+   "tipo": "variable",
+   "notas": "Tasa variable, financiamiento ~90%. Sin tasa publicada en el dato aportado: introduce la tasa manualmente.",
+   "fuente": "reportado por el usuario, confirmar con el banco",
+   "verificado": false
+  }
+ ]
+}
