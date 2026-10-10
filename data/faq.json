@@ -174,12 +174,40 @@
     "demo"
    ],
    "answer": "Los anuncios reales vienen de Encuentra24 y Anuntico; un script diario revisa si siguen activos (vendida/retirada) y actualiza tipo de cambio y TBP. Las propiedades [DEMO] son ficticias para mostrar la app. La fecha está en el distintivo «Actualizado»."
+  },
+  {
+   "id": "remates",
+   "keywords": [
+    "como funciona un remate",
+    "remate",
+    "remates",
+    "subasta",
+    "deposito",
+    "edicto",
+    "juzgado",
+    "segundo remate",
+    "tercer remate",
+    "postor"
+   ],
+   "answer": "En un remate judicial la finca sale a subasta con una base: si no hay postores, el 2do remate es al 75% y el 3er al 25% de la base. Normalmente debes depositar ~50% de la base para participar y pagar el resto en el plazo que fije el juzgado. Lee el edicto completo, revisa la finca en el Registro Nacional (gravámenes, anotaciones, ocupantes) y consulta a un abogado. Activa ⚖️ Remates en el mapa o escríbeme «remates en Heredia». Información general, no asesoría legal."
+  },
+  {
+   "id": "adjudicados",
+   "keywords": [
+    "adjudicado",
+    "adjudicados",
+    "venta de bienes",
+    "bienes del banco",
+    "venta directa"
+   ],
+   "answer": "Los bienes adjudicados son propiedades que un banco recibió y vende directamente, a menudo con descuento sobre el avalúo y financiamiento especial (p. ej. Banco Popular hasta 360 meses según su cartel). Activa 🏦 Adjudicados en el mapa o escríbeme «adjudicados en Alajuela». Fuentes: BN Venta de Bienes y catálogo de Banco Popular; BCR no se pudo consultar automáticamente."
   }
  ],
  "saludo": "¡Hola! Soy el Asistente GeoHogar 🏡. Puedo buscar propiedades por ti («apartamento en Escazú con piscina hasta $250 mil») o explicarte hipotecas, gastos de cierre y documentos.",
  "chips": [
   "Casas en Cartago hasta ₡100 millones",
   "Apartamento con piscina en San José",
+  "Remates en San José",
   "¿Cuánto son los gastos de cierre?",
   "Comparar bancos",
   "Proceso de cierre",

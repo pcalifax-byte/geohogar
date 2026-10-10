@@ -19,7 +19,9 @@
    "notas": "Hasta 90% de financiamiento, 30 años.",
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
-   "url": "https://www.baccredomatic.com/es-cr"
+   "url": "https://www.baccredomatic.com/es-cr",
+   "intento_verificacion": "2026-10-10",
+   "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
    "id": "bcr",
@@ -33,7 +35,9 @@
    "notas": "Promo: 0% comisión de formalización + avalúo gratis para las primeras 400 operaciones, hasta 30 nov 2026.",
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
-   "url": "https://www.bancobcr.com"
+   "url": "https://www.bancobcr.com",
+   "intento_verificacion": "2026-10-10",
+   "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
    "id": "bn",
@@ -47,7 +51,9 @@
    "notas": "Hasta 95%, 30 años; opción con bono de vivienda BANHVI.",
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
-   "url": "https://www.bncr.fi.cr"
+   "url": "https://www.bncr.fi.cr",
+   "intento_verificacion": "2026-10-10",
+   "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
    "id": "mucap",
@@ -63,7 +69,9 @@
    "notas": "Hasta 90–100% con bono.",
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
-   "url": "https://www.mucap.fi.cr"
+   "url": "https://www.mucap.fi.cr",
+   "intento_verificacion": "2026-10-10",
+   "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
    "id": "mutuales",
@@ -79,7 +87,9 @@
    "tipo": "8–10% (se usa 9% promedio)",
    "notas": "Rango típico 8–10%.",
    "fuente": "reportado por el usuario, confirmar con el banco",
-   "verificado": false
+   "verificado": false,
+   "intento_verificacion": "2026-10-10",
+   "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
    "id": "scotia",
@@ -92,7 +102,9 @@
    "tipo": "variable",
    "notas": "Tasa variable, financiamiento ~90%. Sin tasa publicada en el dato aportado: introduce la tasa manualmente.",
    "fuente": "reportado por el usuario, confirmar con el banco",
-   "verificado": false
+   "verificado": false,
+   "intento_verificacion": "2026-10-10",
+   "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   }
  ]
 }

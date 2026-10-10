@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"><link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <style>html,body,#map{height:100%;margin:0}
 .pb{background:#0f766e;color:#fff;font:600 11px system-ui,sans-serif;padding:2px 7px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 4px #0007;border:1.5px solid #fff;transform:translate(-50%,-50%);display:inline-block;cursor:pointer}
-.pb.ap{background:#b45309}.pb.off{background:#9ca3af;color:#f3f4f6;opacity:.85}.pb.demo{background:#db2777}.pb.mine{background:#7c3aed}
+.pb.ap{background:#b45309}.pb.rem{background:#b91c1c}.pb.adj{background:#ea580c}.rchip.on{color:#fff!important}.rchip.on[data-k=remate]{background:#b91c1c}.rchip.on[data-k=adjudicado]{background:#ea580c}.pb.off{background:#9ca3af;color:#f3f4f6;opacity:.85}.pb.demo{background:#db2777}.pb.mine{background:#7c3aed}
 .cl{border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 12px system-ui;background:#0f172a;color:#fff;border:3px solid #14b8a6;width:40px;height:40px}
 .dark .cl{background:#14b8a6;color:#04201d;border-color:#fff}
 .chip.on{background:#0f766e;color:#fff;border-color:#0f766e}
@@ -35,13 +35,13 @@
   <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="plusvalia">📈 Plusvalía</button>
   <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="servicios">🛒 Servicios y Comercio</button>
   <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="transporte">🚆 Transporte</button>
-  <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="calor">🔥 Densidad</button>
+  <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="calor">🔥 Densidad</button><button class="rchip px-2 py-1 rounded-full border border-red-600 text-red-700 dark:text-red-300" data-k="remate">⚖️ Remates</button><button class="rchip px-2 py-1 rounded-full border border-orange-500 text-orange-700 dark:text-orange-300" data-k="adjudicado">🏦 Adjudicados</button>
   <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="exactas">🎯 Solo coord. exactas</button>
   <button id="bDraw" class="px-2 py-1 rounded-full border dark:border-slate-600">✏️ Dibujar zona</button>
   <button id="bClear" class="hidden px-2 py-1 rounded-full border text-red-600">✖ Borrar zona</button>
   <button id="bCalc" class="px-2 py-1 rounded-full border dark:border-slate-600">🧮 Calculadora</button>
   <button id="bPub" class="px-3 py-1 rounded-full bg-violet-600 text-white">➕ Publicar propiedad</button>
-  <span id="count" class="ml-auto font-semibold"></span><button id="chatClr" class="hidden text-xs text-red-600" onclick="App.chatIds=null;this.classList.add('hidden');App.refresh()">✖ búsqueda del asistente</button>
+  <span id="remCount" class="text-xs font-semibold text-red-700 dark:text-red-300"></span><span id="count" class="ml-auto font-semibold"></span><button id="chatClr" class="hidden text-xs text-red-600" onclick="App.chatIds=null;this.classList.add('hidden');App.refresh()">✖ búsqueda del asistente</button>
  </div>
  <div id="hint" class="hidden mt-1 text-xs text-amber-600"></div>
 </header>
@@ -59,7 +59,7 @@
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script><script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script>
 /* ===== Datos embebidos (generados al construir) ===== */
-let EMBED={properties:[],provinces:null,medians:null,pois:[],builtAt:''};let FX={},TASAS={},MERCADO={},META={};
+let EMBED={properties:[],provinces:null,medians:null,pois:[],builtAt:''};let FX={},TASAS={},MERCADO={},META={},REMATES={items:[]};
 const CONFIG={USD_CRC:455,dataBase:'data/',whatsappSoporte:'' /* ej. '50688887777' */,chatApi:null /* ej. 'https://api.geohogar.cr/chat' (ver BACKEND.md) */,fxNote:'Tipo de cambio de referencia BCCR del 10 oct 2026 según dato aportado por el usuario (venta ₡455,60 · compra ₡449,86); se usa 455 fijo, aproximado. No verificado por GeoHogar.',storageKey:'geohogar_mine',darkKey:'geohogar_dark',apiBase:null /* ej. 'https://api.geohogar.cr' o Supabase */};
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const fmt=n=>Math.round(n).toLocaleString('es-CR');
@@ -270,7 +270,7 @@ const App={all:[],visible:[],
   const upA=()=>{Filters.state.amen=[...document.querySelectorAll('.fA:checked')].map(x=>x.value);$('fAmenB').textContent='Amenidades'+(Filters.state.amen.length?` (${Filters.state.amen.length})`:'')+' ▾';this.refresh()};
   document.querySelectorAll('.fA').forEach(x=>x.onchange=upA);$('fAclr').onclick=()=>{document.querySelectorAll('.fA').forEach(x=>x.checked=false);upA()};
   $('bGuide').onclick=()=>UI.guide(UI.cur);
-  Filters.bind(()=>{this.chatIds=null;this.refresh()});Layers.init(map);
+  Filters.bind(()=>{this.chatIds=null;this.refresh()});Layers.init(map);Remates.init(map);
   document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const on=b.classList.toggle('on');if(b.dataset.layer==='exactas'){Filters.state.exact=on;this.refresh()}else{Layers.toggle(b.dataset.layer,on,map);this.refresh()}});
   Layers.initDraw(map,poly=>{Filters.state.polygon=poly;$('bClear').classList.remove('hidden');this.refresh()});
   $('bDraw').onclick=()=>Layers.startDraw();$('bClear').onclick=()=>{Layers.clearDraw();Filters.state.polygon=null;$('bClear').classList.add('hidden');this.refresh()};
@@ -278,8 +278,37 @@ const App={all:[],visible:[],
   $('modal').onclick=e=>{if(e.target.id==='modal')UI.close()};this.refresh()},
  async reload(){this.all=await DataService.getProperties();this.refresh()},
  theme(d){document.documentElement.classList.toggle('dark',d);localStorage.setItem(CONFIG.darkKey,d?'1':'0');MapController.setTheme(d)},
- refresh(){const s=Filters.state;$('pv').textContent=s.max===Infinity?'Sin límite':'$'+fmt(s.max);this.visible=Filters.apply(this.all);if(this.chatIds)this.visible=this.visible.filter(p=>this.chatIds.has(p.id));MapController.render(this.visible);Layers.updateHeat&&Layers.updateHeat(this.visible);
+ refresh(){const s=Filters.state;$('pv').textContent=s.max===Infinity?'Sin límite':'$'+fmt(s.max);this.visible=Filters.apply(this.all);if(this.chatIds)this.visible=this.visible.filter(p=>this.chatIds.has(p.id));MapController.render(this.visible);Layers.updateHeat&&Layers.updateHeat(this.visible);Remates.layer&&Remates.render(MapController.map);
   const nd=this.visible.filter(p=>p.demo).length;$('upd').classList.remove('hidden');$('chatClr').classList.toggle('hidden',!this.chatIds);$('count').textContent=`${this.visible.length} de ${this.all.length} propiedades${nd?` (${nd} demo)`:''}`}
+};
+
+/* ===== Remates judiciales y bienes adjudicados ===== */
+const Remates={layer:null,on:{remate:false,adjudicado:false},filter:null,
+ fmtC:(v,c)=>v==null?'—':(c==='USD'?'$':'₡')+fmt(v),
+ fecha:d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-CR',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'—',
+ next(x){const t=new Date().toISOString().slice(0,10);return [[x.fecha1,x.base1,'1er'],[x.fecha2,x.base2,'2do'],[x.fecha3,x.base3,'3er']].find(([d])=>d&&d>=t)},
+ short(x){const v=x.kind==='remate'?(this.next(x)||[0,x.base1])[1]:x.precio;if(!v)return'?';return(x.moneda==='USD'?'$':'₡')+(v>=1e6?(+(v/1e6).toFixed(v>=1e7?0:1))+'M':Math.round(v/1e3)+'K')},
+ init(map){this.layer=L.markerClusterGroup({iconCreateFunction:c=>L.divIcon({html:`<div class="cl" style="border-color:#b91c1c">⚖${c.getChildCount()}</div>`,className:'',iconSize:[40,40]})});
+  document.querySelectorAll('.rchip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;this.on[k]=b.classList.toggle('on');this.filter=null;this.render(map)})},
+ items(){const s=Filters.state,q=Filters.norm(s.q);return (REMATES.items||[]).filter(x=>x.lat&&this.on[x.kind]&&(!this.filter||this.filter.has(x.id))&&(!s.prov||x.provincia===s.prov)&&(!q||Filters.norm([x.titulo,x.provincia,x.canton,x.distrito,x.resumen].join(' ')).includes(q)))},
+ render(map){this.layer.clearLayers();const it=this.items();
+  this.layer.addLayers(it.map(x=>L.marker([x.lat,x.lon],{icon:L.divIcon({className:'',html:`<span class="pb ${x.kind==='remate'?'rem':'adj'}">${x.kind==='remate'?'⚖️':'🏦'} ${this.short(x)}</span>`,iconSize:[0,0]})}).on('click',()=>this.card(x))));
+  if(it.length||this.on.remate||this.on.adjudicado){if(!map.hasLayer(this.layer))this.layer.addTo(map)}else map.removeLayer(this.layer);
+  const nr=it.filter(x=>x.kind==='remate').length,na=it.length-nr;$('remCount').textContent=(this.on.remate||this.on.adjudicado)?`⚖️ ${nr} remates · 🏦 ${na} adjudicados`:'';},
+ card(x){UI.cur=null;const R=x.kind==='remate',row=(k,v)=>v==null||v===''?'':`<div class="opacity-60">${k}</div><div class="col-span-2">${v}</div>`;
+  const nx=R&&this.next(x);
+  $('card').innerHTML=`<div class="relative">${x.imagen?`<img src="${esc(x.imagen)}" referrerpolicy="no-referrer" class="w-full h-44 object-cover">`:`<div class="w-full h-32 flex items-center justify-center text-6xl ${R?'bg-red-700':'bg-orange-600'}">${R?'⚖️':'🏦'}</div>`}<button id="cClose" class="absolute top-2 right-2 bg-white/90 text-black rounded-full w-8 h-8">✕</button></div>
+  <div class="p-4 space-y-2"><span class="text-[11px] ${R?'bg-red-700':'bg-orange-600'} text-white px-2 py-0.5 rounded-full">${R?'Remate judicial':'Bien adjudicado · venta directa'} · ${esc(x.fuente)}</span>
+  <h2 class="font-bold text-lg leading-tight">${esc(x.titulo||(x.tipo+' en remate · '+[x.distrito,x.canton,x.provincia].filter(Boolean).join(', ')))}</h2>
+  ${R?`<div class="grid grid-cols-3 gap-1 text-center text-xs">${[['1er remate',x.base1,x.fecha1],['2do (75%)',x.base2,x.fecha2],['3er (25%)',x.base3,x.fecha3]].map(([l,v,d])=>`<div class="rounded-lg p-1.5 ${nx&&nx[0]===d?'bg-red-100 dark:bg-red-900/50 ring-1 ring-red-500':'bg-slate-100 dark:bg-slate-700'}"><div class="opacity-60">${l}</div><b>${this.fmtC(v,x.moneda)}</b><div class="opacity-70">${this.fecha(d)}</div></div>`).join('')}</div>${x.hora?`<div class="text-xs">🕘 Hora: ${esc(x.hora)}</div>`:''}${x.base_nota?`<div class="text-[10px] opacity-60">${esc(x.base_nota)}</div>`:''}`
+   :`<div class="text-2xl font-extrabold text-orange-600">${this.fmtC(x.precio,x.moneda)}${x.descuento?` <span class="text-sm bg-orange-100 dark:bg-orange-900 px-2 rounded">-${x.descuento}%</span>`:''}</div>${x.avaluo?`<div class="text-xs opacity-70">Avalúo: ${this.fmtC(x.avaluo,x.moneda)}</div>`:''}`}
+  <div class="grid grid-cols-3 gap-1 text-sm">${row('Tipo',esc(x.tipo))+row('Ubicación',esc([x.distrito,x.canton,x.provincia].filter(Boolean).join(', ')))+row('Gravámenes',esc(x.gravamen))+row('Juzgado',esc(x.juzgado))+row('Expediente',esc(x.expediente))+row('Finca',esc(x.finca))+row('Área',x.area_m2?fmt(x.area_m2)+' m²':(x.terreno_m2?fmt(x.terreno_m2)+' m² terreno':''))+row('Construcción',x.construccion_m2?fmt(x.construccion_m2)+' m²':'')+row('Habitaciones',esc(x.habitaciones))+row('Modalidad',esc(x.modalidad))+row('Contacto',esc(x.contacto))+row('Coordenadas',x.coord==='exacta'?'✅ Centroide SNIT':'⚠️ Aproximadas (centro de zona)')}</div>
+  ${x.resumen?`<p class="text-xs opacity-80">${esc(x.resumen)}</p>`:''}
+  <div class="grid grid-cols-2 gap-2"><a target="_blank" rel="noopener" href="${esc(x.url)}" class="text-center bg-slate-700 text-white rounded-lg py-2 text-sm">${R?'📜 Ver edicto/fuente':'🔗 Ver en el banco'}</a>
+  <a target="_blank" rel="noopener" href="https://wa.me/${x.telefono?'506'+x.telefono:''}?text=${encodeURIComponent('Hola, consulta sobre '+(R?'el remate expediente '+(x.expediente||x.id):'el bien adjudicado '+(x.expediente||x.titulo||x.id))+' '+x.url)}" class="text-center bg-green-600 text-white rounded-lg py-2 text-sm">💬 WhatsApp</a></div>
+  ${x.url_nota?`<p class="text-[10px] opacity-60">${esc(x.url_nota)}</p>`:''}
+  <div class="text-[11px] rounded-lg p-2 ${R?'bg-red-50 dark:bg-red-900/30':'bg-orange-50 dark:bg-orange-900/30'} space-y-1">${R?`<b>Reglas del remate (información general):</b><br>• Para participar se suele depositar ~50% de la base (en efectivo/cheque/transferencia según el juzgado) y el resto en el plazo que fije el despacho (usualmente 3 días hábiles).<br>• Si no hay postores, el 2do remate es al 75% y el 3er al 25% de la base.<br>• Lee el <b>edicto completo</b> y verifica la finca en el <b>Registro Nacional</b> (gravámenes, anotaciones, ocupantes).<br>• El inmueble se adquiere “como está”; puede haber ocupantes o deudas municipales.<br>• Consulta a un <b>abogado</b> antes de ofertar.`:`<b>Venta directa del banco:</b> precio fijo con descuento sobre avalúo; los bancos suelen ofrecer <b>financiamiento especial</b> (p. ej. BP hasta 360 meses y 0% comisiones según su cartel; BN según condiciones vigentes). Verifica estado registral y visita el inmueble; confirma condiciones con el banco.`}<br><i>No es asesoría legal.</i></div></div>`;
+  $('card').classList.remove('hidden');$('cClose').onclick=()=>$('card').classList.add('hidden')}
 };
 /* ===== Chat: Asistente GeoHogar (intenciones locales; CONFIG.chatApi permite conectar un LLM) ===== */
 const Chat={kb:null,
@@ -329,6 +358,14 @@ const Chat={kb:null,
   if(/agente|asesor|humano|persona|whatsapp|hablar con/.test(t)){this.agent();return}
   if(/^(hola|buenas|buenos|hey|que tal)/.test(t)&&t.length<25){this.bot(this.kb.saludo);this.chips(this.kb.chips.slice(0,4));return}
   if(/limpiar|quitar filtros|reiniciar|ver todo/.test(t)){App.chatIds=null;this.applyToMap({amen:[]},[]);MapController.map.setView([9.93,-84.1],8);this.bot('Listo, quité los filtros de la búsqueda.');return}
+  if(/remate|subasta|adjudicad|venta de bienes|bien(es)? del banco|embargad/.test(t)&&!/(como|que es|reglas|deposito|funciona|requisitos|cuanto hay que)/.test(t)){
+   const f=this.parse(q),adj=/adjudicad|banco|venta de bienes/.test(t),rem=/remate|subasta|embargad/.test(t);const kinds=adj&&!rem?['adjudicado']:rem&&!adj?['remate']:['remate','adjudicado'];
+   const it=(REMATES.items||[]).filter(x=>x.lat&&kinds.includes(x.kind)&&(!f.prov||x.provincia===f.prov)&&(!f.q||this.N([x.canton,x.distrito,x.titulo,x.resumen].join(' ')).includes(f.q))&&(!f.type||x.tipo===f.type||(f.type==='Casa'&&x.tipo==='Casa'))&&(!f.max||((x.kind==='remate'?((Remates.next(x)||[])[1]||x.base1):x.precio)||0)/(x.moneda==='USD'?1/CONFIG.USD_CRC:1)/CONFIG.USD_CRC<=f.max));
+   ['remate','adjudicado'].forEach(k=>{Remates.on[k]=kinds.includes(k);document.querySelector(`.rchip[data-k=${k}]`).classList.toggle('on',Remates.on[k])});Remates.filter=new Set(it.map(x=>x.id));Remates.render(MapController.map);
+   if(!it.length){this.bot('No encontré '+(kinds.length>1?'remates ni adjudicados':kinds[0]==='remate'?'remates vigentes':'bienes adjudicados')+' con esos criterios.');this.chips(['Remates en San José','Bienes adjudicados en Alajuela','¿Cómo funciona un remate?']);return}
+   const top=it.sort((a,b)=>(a.fecha1||'9').localeCompare(b.fecha1||'9')).slice(0,3);MapController.map.fitBounds(L.latLngBounds(it.map(x=>[x.lat,x.lon])).pad(.2),{maxZoom:13});
+   const d=this.bot(`Encontré <b>${it.length}</b> ${kinds.length>1?'remates/adjudicados':kinds[0]==='remate'?'remates vigentes':'bienes adjudicados'}${f.prov?' en '+f.prov:''}. Los marqué en el mapa:<div class="mt-1 space-y-1">${top.map((x,i)=>`<button data-i="${i}" class="cr block w-full text-left bg-white dark:bg-slate-800 rounded-lg p-1.5 border dark:border-slate-600"><b class="${x.kind==='remate'?'text-red-700':'text-orange-600'}">${x.kind==='remate'?'⚖️':'🏦'} ${esc(Remates.short(x))}</b> · ${esc(x.tipo)} · ${esc([x.canton,x.provincia].filter(Boolean).join(', '))}<div class="text-[11px] opacity-70">${x.kind==='remate'?'1er remate '+Remates.fecha(x.fecha1):(x.descuento?x.descuento+'% descuento':'')}</div></button>`).join('')}</div>`);
+   d.querySelectorAll('.cr').forEach(b=>b.onclick=()=>{const x=top[+b.dataset.i];MapController.map.setView([x.lat,x.lon],15);Remates.card(x)});this.chips(['¿Cómo funciona un remate?','Hablar con un agente']);return}
   const f=this.parse(q),isSearch=f.type||f.prov||f.q||f.beds||f.max||f.min||(f.amen.length&&/(busco|quiero|con|tenga|muestra|ver|encontrar)/.test(t));
   // puntaje de intenciones
   const words=t.split(/[^a-z0-9ñ]+/).filter(w=>w.length>2);let best=null,bs=0;
@@ -348,7 +385,7 @@ const Chat={kb:null,
   this.bot(esc(this.kb.fallback));this.chips(this.kb.chips)}
 };
 async function loadData(){const g=n=>fetch(CONFIG.dataBase+n+'?v='+Date.now().toString().slice(0,-5)).then(r=>{if(!r.ok)throw new Error(n);return r.json()});
- const [props,capas,fx,tasas,mercado,meta]=await Promise.all(['propiedades.json','capas.json','tipo_cambio.json','tasas.json','mercado.json','meta.json'].map(g));
+ const [props,capas,fx,tasas,mercado,meta]=await Promise.all(['propiedades.json','capas.json','tipo_cambio.json','tasas.json','mercado.json','meta.json'].map(g));try{REMATES=await g('remates.json')}catch(e){REMATES={items:[],fuentes:{}}}
  EMBED={properties:props,provinces:capas.provinces,medians:capas.medians,pois:capas.pois,builtAt:new Date(meta.last_updated).toLocaleDateString('es-CR',{day:'numeric',month:'short',year:'numeric'})};
  FX=fx;TASAS=tasas;MERCADO=mercado;META=meta;CONFIG.USD_CRC=fx.referencia||fx.venta||455;
  $('fxLbl').textContent=`₡→$ 1 USD ≈ ${CONFIG.USD_CRC} CRC (BCCR compra ${fx.compra} / venta ${fx.venta}, ${fx.fecha})`;

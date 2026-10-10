@@ -23,6 +23,7 @@ UA = "GeoHogarBot/1.0 (+https://pcalifax-byte.github.io/geohogar/)"
 ap = argparse.ArgumentParser()
 ap.add_argument("--no-push", action="store_true"); ap.add_argument("--no-listings", action="store_true")
 ap.add_argument("--max-new", type=int, default=30); ap.add_argument("--delay", type=float, default=1.5)
+ap.add_argument("--no-remates", action="store_true")
 ap.add_argument("--limit-check", type=int, default=0, help="revisar solo N anuncios (0 = todos)")
 A = ap.parse_args()
 NOW = datetime.datetime.now(datetime.timezone.utc); TODAY = NOW.date().isoformat()
@@ -40,7 +41,7 @@ def digest():
 
 def http(url, timeout=25):
     """Devuelve (status, url_final, texto). Sigue redirecciones."""
-    r = subprocess.run(["curl", "-sL", "--max-time", str(timeout), "-A", UA, "-o", "-", "-w", "\n__META__%{http_code} %{url_effective}", url],
+    r = subprocess.run(["curl", "-sL", "--compressed", "--max-time", str(timeout), "-A", UA, "-o", "-", "-w", "\n__META__%{http_code} %{url_effective}", url],
                        capture_output=True, text=True, errors="ignore")
     body, _, meta = r.stdout.rpartition("\n__META__")
     try: code, final = meta.split(" ", 1)
@@ -146,10 +147,12 @@ def check(p):
     if c in (404, 410): return "retirada"
     if c == 0 or c >= 500 or c == 429: return None  # error transitorio: no cambiar
     if lid and lid not in final: return "retirada"   # redirige a otra página (listado/portada)
+    seg = lambda x: urllib.parse.urlparse(x).path.strip("/").split("/")[:2]
+    if seg(final) != seg(url): return "retirada"       # redirige a otra sección/país: el anuncio original ya no existe
     t = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", h)))
     if p["source"] == "encuentra24":
         hh = h.replace('\\"', '"')
-        if re.search(r'"active":false', hh) and not re.search(r'"active":true', hh[:hh.find('"active":false')]): return "retirada"
+        if f'"adId":"{p["id"]}"' not in hh and f'"id":"{p["id"]}"' not in hh: return "retirada"   # la página ya no contiene el anuncio
     if p["source"] == "anuntico":
         if '"RealEstateListing"' not in h: return "retirada"
         if re.search(r'"availability":"https://schema.org/(SoldOut|Discontinued)"', h): return "vendida" if "SoldOut" in h else "retirada"
@@ -233,10 +236,30 @@ def add_new(props):
     props[:0] = new
     summary["nuevas"] = len(new); summary["candidatas_nuevas"] = len(found)
 
+# ---------------- 5. Remates y adjudicados ----------------
+def update_remates():
+    import remates
+    try: prev = load("remates.json").get("items", [])
+    except Exception: prev = []
+    try:
+        items, fuentes = remates.build(prev, TODAY, log=lambda *a: summary["errores"].append(" ".join(map(str, a))))
+        cache = json.load(open(GC)) if os.path.exists(GC) else {}
+        remates.geocode_all(items, cache, lambda u: json.loads(http(u)[2])); json.dump(cache, open(GC, "w"), ensure_ascii=False)
+        old_ids = {x["id"] for x in prev}; new_ids = {x["id"] for x in items}
+        items.sort(key=lambda x: x["id"])
+        newdoc = {"fuentes": fuentes, "items": items}
+        try: olddoc = load("remates.json"); olddoc.pop("fecha", None)
+        except Exception: olddoc = None
+        if newdoc != olddoc: save("remates.json", {"fecha": TODAY, **newdoc}, compact=True)
+        summary["remates"] = {"total": len(items), "nuevos": len(new_ids - old_ids), "eliminados_vencidos_o_retirados": len(old_ids - new_ids),
+                              "por_fuente": {k: v.get("n") for k, v in fuentes.items()}}
+    except Exception as e: summary["errores"].append(f"remates: {e}")
+
 # ---------------- main ----------------
 def main():
     before = digest()
     update_fx(); update_rates(); update_market()
+    if not A.no_remates: update_remates()
     props = load("propiedades.json"); ps = json.dumps(props, sort_keys=True)
     for p in props:  # amenidades para cualquier anuncio que aún no las tenga
         if "amenidades" not in p: p["amenidades"] = extraer(p)
