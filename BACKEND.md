@@ -158,7 +158,7 @@ Páginas: `login.html` (iniciar sesión / crear cuenta / enlace mágico / olvid�
 ### Configurar Supabase
 1. Crea un proyecto en supabase.com → *Project Settings → API*: copia **Project URL** y **anon public key** a `js/config.js` (la anon key es pública; **nunca** pongas la `service_role` key en el frontend ni en el repo).
 2. *SQL Editor*: ejecuta el bloque «Cuentas, plan Plus…» de `schema.sql` (tablas `profiles`, `favoritos`, `busquedas_guardadas`, `alertas`, trigger de perfil y políticas RLS; requiere extensión `postgis`).
-3. *Authentication → URL Configuration*: **Site URL** `https://pcalifax-byte.github.io/geohogar/` y en **Redirect URLs** agrega `https://pcalifax-byte.github.io/geohogar/*` (enlace mágico vuelve a `index.html`; recuperación a `cuenta.html#nueva-clave`).
+3. *Authentication → URL Configuration*: **Site URL** `https://pcalifax-byte.github.io/geohogar/`; **Redirect URLs**: `https://pcalifax-byte.github.io/geohogar/*` (o al menos `…/geohogar/confirmar.html`, `…/login.html`, `…/cuenta.html`, `…/index.html`). Todos los correos (confirmación, enlace mágico, recuperación) vuelven a `confirmar.html`, que maneja `?code=` (PKCE), `#access_token` y errores como `otp_expired` con botón «Reenviar correo». Si la URL de retorno no está permitida, Supabase usa el Site URL (por defecto `http://localhost:3000`) y el enlace «no carga».
 4. *Authentication → Providers → Email*: activa email + contraseña y «Confirm email».
 5. *Authentication → Email Templates* (en español), por ejemplo:
    - **Confirmar registro** — Asunto: «Confirma tu cuenta de MapMarket». Cuerpo: «¡Hola! Confirma tu correo para empezar a guardar propiedades: <a href="{{ .ConfirmationURL }}">Confirmar cuenta</a>».
