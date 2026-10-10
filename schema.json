@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geohogar.cr/schema/property-feature.json",
+  "title": "GeoHogar Property (GeoJSON Feature)",
+  "type": "object",
+  "required": ["type", "geometry", "properties"],
+  "properties": {
+    "type": { "const": "Feature" },
+    "id": { "type": ["string", "integer"] },
+    "geometry": {
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "Point" },
+        "coordinates": { "type": "array", "prefixItems": [
+          { "type": "number", "minimum": -87.5, "maximum": -82.5, "description": "longitud" },
+          { "type": "number", "minimum": 5.0, "maximum": 11.3, "description": "latitud" } ], "minItems": 2, "maxItems": 2 }
+      }
+    },
+    "properties": {
+      "type": "object",
+      "required": ["title", "type", "currency", "coord_quality", "source"],
+      "properties": {
+        "title": { "type": "string", "minLength": 3 },
+        "description": { "type": ["string", "null"] },
+        "type": { "enum": ["casa", "apartamento", "lote", "casa_playa", "comercio", "finca", "negocio", "edificio", "oficina"] },
+        "operation": { "enum": ["venta", "alquiler"], "default": "venta" },
+        "price": { "type": ["number", "null"], "minimum": 0 },
+        "currency": { "enum": ["USD", "CRC"] },
+        "price_usd": { "type": ["number", "null"] },
+        "bedrooms": { "type": ["integer", "null"], "minimum": 0 },
+        "bathrooms": { "type": ["number", "null"], "minimum": 0 },
+        "area_m2": { "type": ["number", "null"], "minimum": 0 },
+        "amenities": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "images": { "type": "array", "items": { "type": "object", "required": ["url"],
+          "properties": { "url": { "type": "string", "format": "uri" }, "is_placeholder": { "type": "boolean" } } } },
+        "province": { "enum": ["San José", "Alajuela", "Cartago", "Heredia", "Guanacaste", "Puntarenas", "Limón", null] },
+        "canton": { "type": ["string", "null"] },
+        "location_text": { "type": ["string", "null"] },
+        "coord_quality": { "enum": ["exacta", "aproximada", "elegida", "demo"] },
+        "source": { "type": "string" },
+        "source_url": { "type": ["string", "null"], "format": "uri" },
+        "agent": { "type": ["object", "null"], "properties": { "name": { "type": "string" }, "whatsapp": { "type": "string", "pattern": "^\\+506\\d{8}$" } } },
+        "is_demo": { "type": "boolean", "default": false }
+      }
+    }
+  },
+  "examples": [{
+    "type": "Feature", "id": 32226983,
+    "geometry": { "type": "Point", "coordinates": [-84.189026, 9.940832] },
+    "properties": { "title": "OPORTUNIDAD ÚNICA Terreno en Santa Ana Alta Densidad!", "type": "lote", "price": 1000000, "currency": "USD",
+      "province": "San José", "location_text": "San José provincia, Santa Ana, Santa Ana Centro", "coord_quality": "exacta",
+      "source": "encuentra24", "source_url": "https://www.encuentra24.com/costa-rica-es/bienes-raices-venta-de-propiedades-lotes-y-terrenos/oportunidad-unica-terreno-en-santa-ana-alta-densidad/32226983", "amenities": [], "is_demo": false }
+  }]
+}
