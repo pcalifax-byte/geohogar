@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MapMarket</string>
+    <string name="title_activity_main">MapMarket</string>
+    <string name="package_name">com.mapmarket.app</string>
+    <string name="custom_url_scheme">com.mapmarket.app</string>
+</resources>
