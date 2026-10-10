@@ -166,31 +166,70 @@ Páginas: `login.html` (iniciar sesión / crear cuenta / enlace mágico / olvid�
    - **Reset Password** — Asunto: «Restablece tu contraseña de GeoHogar». Cuerpo: «<a href="{{ .ConfirmationURL }}">Crear una nueva contraseña</a>».
    - Para producción configura SMTP propio (*Project Settings → Auth → SMTP*), p. ej. Resend, SendGrid o Amazon SES.
 
-### Cobro y webhook (Stripe; similar para PayPal o Tilopay)
-1. Crea el producto «GeoHogar Plus» con precios mensual y anual; genera un **Payment Link** y ponlo en `GH_CONFIG.checkoutUrl`. `planes.html` agrega `client_reference_id=<uuid del usuario>` y `prefilled_email`.
-2. Crea una Edge Function (`supabase functions new stripe-webhook`) y regístrala en Stripe → *Developers → Webhooks* con los eventos `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+### Prueba gratis de 2 días (sin tarjeta)
+`planes.html`, el modal de mejora en el mapa y `cuenta.html` llaman `Auth.startTrial()` → RPC `start_trial()` (en `schema.sql`): es `SECURITY DEFINER`, solo funciona con sesión iniciada, solo una vez por cuenta (`trial_used`) y fija `trial_ends_at = now() + 2 días`. `is_plus()` / `has_plus()` devuelven verdadero si hay pago vigente **o** prueba vigente, así que las políticas RLS se aplican solas al vencer. El mapa muestra «⏳ X h Plus» en la barra superior, se recarga al vencer y muestra el aviso «Tu prueba terminó». En modo demo se guarda en `localStorage` (`gh_demo_trials`). No se crea la prueba en Tilopay (su `trial_days` exige registrar tarjeta); la prueba es 100 % de GeoHogar.
+
+### Cobro con Tilopay (proveedor principal)
+Fuente: documentación pública https://tilopay.com/developers (páginas «Crear plan recurrente», «Suscriptores de un plan», «URL de registro y renovación», «Webhooks», «Autenticación», revisadas el 10 oct 2026; Tilopay las marca como verificadas el 28–29 ago 2026).
+
+**Lo que debes hacer en Tilopay**
+1. Crea la cuenta de comercio en tilopay.com y completa la afiliación (KYC, cuenta bancaria). Tilopay no tiene un host de pruebas aparte: usa sus credenciales/modo de prueba según te indiquen.
+2. En `admin.tilopay.com/admin/checkout` obtén `apiuser`, `password` y `key`. **Son secretos**: van solo en Supabase (`supabase secrets set`), nunca en `js/config.js` ni en el repo.
+3. Crea dos **planes recurrentes** (panel → Recurrentes, o `POST /api/v1/createPlanRepeat`): «GeoHogar Plus mensual» `currency=USD`, `frecuency=3` (mensual), monto 7; «GeoHogar Plus anual» `frecuency=4` (anual), monto 59. `trial=0` (la prueba la da GeoHogar). Configura en ambos:
+   - `webhook_subscribe`, `webhook_payment`, `webhook_rejected`, `webhook_unsubscribe`, `webhook_reactive` → `https://<proyecto>.supabase.co/functions/v1/tilopay-webhook?t=<TILOPAY_WEBHOOK_TOKEN>`
+   - `thanks_url` (GET) → `https://pcalifax-byte.github.io/geohogar/cuenta.html?pago=ok`
+4. Copia la **URL de registro** de cada plan (panel, o `POST /api/v1/recurrentUrl` → `url_register`, con forma `https://app.tilopay.com/admin/recurrent/register/<ID>`) a `js/config.js` → `tilopay.mensualUrl` / `tilopay.anualUrl`. Los botones «Suscribirme» agregan `?email=<correo del usuario>` (parámetro que muestra la documentación de `recurrentUrl`). Tilopay no ofrece un campo de referencia propio en este flujo, así que **el usuario se identifica por su email**: pide usar el mismo correo de la cuenta GeoHogar.
+5. Escribe a soporte de Tilopay (`soporte@tilopay.com` / `sac@tilopay.com`) para pedir el algoritmo de `orderHash` (verificación de origen; no es público) y, si usas `processPayment`, la especificación de su webhook.
+
+**Edge Function `tilopay-webhook`** — responde 200 de inmediato (Tilopay reintenta la recurrencia hasta 5 veces si recibe 400/403/404/502/504; las compras únicas no se reintentan) y **verifica contra el API** antes de dar Plus, porque la documentación advierte no tomar decisiones solo con el contenido del webhook:
 ```ts
-// supabase/functions/stripe-webhook/index.ts
-import Stripe from "npm:stripe@16"; import { createClient } from "npm:@supabase/supabase-js@2";
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
+// supabase/functions/tilopay-webhook/index.ts   (deploy: supabase functions deploy tilopay-webhook --no-verify-jwt)
+import { createClient } from "npm:@supabase/supabase-js@2";
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const T = "https://app.tilopay.com/api/v1";
+const PLANES: Record<string, number> = { [Deno.env.get("TILOPAY_PLAN_MENSUAL")!]: 31, [Deno.env.get("TILOPAY_PLAN_ANUAL")!]: 366 };
+
+async function token() {           // POST /api/v1/login → access_token (vigencia 24 h)
+  const r = await fetch(`${T}/login`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiuser: Deno.env.get("TILOPAY_APIUSER"), password: Deno.env.get("TILOPAY_PASSWORD") }) });
+  return (await r.json()).access_token as string;
+}
+async function suscriptor(planId: string, email: string) {   // POST /api/v1/getSuscriptorRepeat
+  const r = await fetch(`${T}/getSuscriptorRepeat`, { method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `bearer ${await token()}` },
+    body: JSON.stringify({ key: Deno.env.get("TILOPAY_KEY"), id: planId }) });
+  const j = await r.json();
+  return (j.suscriptor ?? []).filter((s: any) => s.email?.toLowerCase() === email)
+    .sort((a: any, b: any) => (b.create > a.create ? 1 : -1))[0];
+}
+async function procesar(body: any) {
+  const email = String(body.email ?? "").toLowerCase(), planId = String(body.id_plan ?? "");
+  if (!email || !(planId in PLANES)) return;
+  const s = await suscriptor(planId, email);                       // fuente de verdad
+  const activo = s?.status === "Active";
+  const fin = s?.expire ? new Date(s.expire + "T23:59:59-06:00") : new Date(Date.now() + PLANES[planId] * 864e5);
+  await db.from("pagos_eventos").insert({ evento: body.evento, email, order_number: body.orderNumber ?? null, payload: body, verificado: !!s });
+  if (!s) return;
+  await db.from("profiles").update(activo ? { plan: "plus", plus_until: fin.toISOString(), tilopay_plan_id: planId }
+                                          : { plan: "gratis", plus_until: fin.toISOString() }).eq("email", email);
+}
 Deno.serve(async (req) => {
-  const ev = await stripe.webhooks.constructEventAsync(await req.text(), req.headers.get("stripe-signature")!, Deno.env.get("STRIPE_WEBHOOK_SECRET")!);
-  if (ev.type === "checkout.session.completed") {
-    const s = ev.data.object as Stripe.Checkout.Session;
-    const sub = await stripe.subscriptions.retrieve(s.subscription as string);
-    await db.from("profiles").update({ plan: "plus", plus_until: new Date(sub.current_period_end * 1000).toISOString(), stripe_customer_id: s.customer })
-      .eq("id", s.client_reference_id);
-  }
-  if (ev.type === "customer.subscription.updated" || ev.type === "customer.subscription.deleted") {
-    const sub = ev.data.object as Stripe.Subscription; const active = ["active", "trialing"].includes(sub.status);
-    await db.from("profiles").update({ plan: active ? "plus" : "gratis", plus_until: new Date(sub.current_period_end * 1000).toISOString() })
-      .eq("stripe_customer_id", sub.customer);
-  }
-  return new Response("ok");
+  if (new URL(req.url).searchParams.get("t") !== Deno.env.get("TILOPAY_WEBHOOK_TOKEN")) return new Response("ok"); // ignora, sin reintentos
+  let body: any = {}; const txt = await req.text();
+  try { body = JSON.parse(txt); } catch { body = Object.fromEntries(new URLSearchParams(txt)); }
+  // @ts-ignore EdgeRuntime existe en Supabase: procesa después de responder 200
+  EdgeRuntime.waitUntil(procesar(body).catch(console.error));
+  return new Response("ok", { status: 200 });
 });
 ```
-`supabase secrets set STRIPE_SECRET_KEY=… STRIPE_WEBHOOK_SECRET=…` — las claves viven solo en Supabase, nunca en el repo.
+`supabase secrets set TILOPAY_APIUSER=… TILOPAY_PASSWORD=… TILOPAY_KEY=… TILOPAY_PLAN_MENSUAL=<id> TILOPAY_PLAN_ANUAL=<id> TILOPAY_WEBHOOK_TOKEN=<cadena aleatoria larga>`
+
+**Verificado vs supuesto (según la documentación pública):**
+- Verificado: host único `app.tilopay.com`; `POST /api/v1/login` (apiuser/password → bearer, 24 h); `createPlanRepeat` (frecuencias 3=mensual, 4=anual, `trial`/`trial_days`, los 5 webhooks y `thanks_url` GET); ejemplos de payload (`webhook_subscribe`: id_plan, email, modality, amount, free_trial, next_payment_date; `webhook_payment`: id_plan, email, amount, auth, orderNumber; `webhook_unsubscribe` incluye expire); `getSuscriptorRepeat` (lista por plan con email, status `Active`/`Delete`, expire); `recurrentUrl` → `url_register`; política de reintentos; formato JSON; `orderHash` no público.
+- Supuesto / por confirmar con Tilopay: que la URL de registro acepte `?email=` para precargar el correo; que el webhook **no** indique el tipo de evento (por eso se consulta el estado real del suscriptor en cada aviso); la zona horaria de `expire`; los demás valores de `status` (p. ej. pausado); la forma exacta de las modalidades del plan. Para mayor seguridad, cuando Tilopay te dé el algoritmo de `orderHash`, valídalo en `procesar()`.
+- Respaldo diario recomendado: un cron (pg_cron o GitHub Action) que recorra `getSuscriptorRepeat` de ambos planes y sincronice `profiles`, por si se pierde un webhook.
+
+*Alternativa (Stripe):* si algún día usas Stripe, el flujo equivalente es Payment Link + `client_reference_id` + webhook `checkout.session.completed` / `customer.subscription.*` que actualiza `profiles.plan`/`plus_until`; la lógica de Plus y RLS no cambia.
 
 ### Qué está bloqueado tras Plus (frontend + RLS)
-Favoritos > 10 (también limitado por política RLS), búsquedas guardadas/alertas por zona (RLS solo permite insertar a Plus), reporte CSV descargable, filtros avanzados de remates/adjudicados y comparación contra la mediana en la ficha. Todo lo demás sigue gratis. El bloqueo en el frontend es solo UX; la protección real son las políticas RLS y, para reportes de pago, generarlos en el servidor.
+Plus = pago vigente o prueba vigente. Favoritos > 10 (también limitado por política RLS), búsquedas guardadas/alertas por zona (RLS solo permite insertar a Plus), reporte CSV descargable, filtros avanzados de remates/adjudicados y comparación contra la mediana en la ficha. Todo lo demás sigue gratis. El bloqueo en el frontend es solo UX; la protección real son las políticas RLS y, para reportes de pago, generarlos en el servidor.

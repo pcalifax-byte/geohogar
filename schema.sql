@@ -236,3 +236,45 @@ CREATE POLICY "alertas propias" ON public.alertas FOR SELECT USING (user_id = au
 -- SELECT b.id, b.user_id, p.external_id, 'propiedad' FROM busquedas_guardadas b JOIN properties p
 --   ON b.alerta AND (b.zona IS NULL OR ST_Within(p.geom::geometry, b.zona::geometry)) AND p.created_at > now() - interval '1 day'
 -- ON CONFLICT DO NOTHING;
+
+-- ===================== Prueba gratis de 2 días + Tilopay =====================
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS trial_ends_at    TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS trial_used       BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS email            TEXT,          -- para conciliar webhooks de Tilopay (llegan por email)
+  ADD COLUMN IF NOT EXISTS tilopay_plan_id  TEXT;
+REVOKE UPDATE (trial_started_at, trial_ends_at, trial_used, email, tilopay_plan_id) ON public.profiles FROM authenticated, anon;
+
+-- copiar email al crear perfil
+CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN INSERT INTO public.profiles (id, nombre, email) VALUES (NEW.id, NEW.raw_user_meta_data->>'nombre', lower(NEW.email)) ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email; RETURN NEW; END $$;
+UPDATE public.profiles p SET email = lower(u.email) FROM auth.users u WHERE u.id = p.id AND p.email IS NULL;
+
+-- Plus = pagado vigente O prueba vigente (lo usan las políticas RLS de favoritos y búsquedas)
+CREATE OR REPLACE FUNCTION public.is_plus(uid UUID) RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND (
+     (plan = 'plus' AND (plus_until IS NULL OR plus_until > now()))
+     OR (trial_ends_at IS NOT NULL AND trial_ends_at > now()))) $$;
+CREATE OR REPLACE FUNCTION public.has_plus() RETURNS BOOLEAN LANGUAGE sql STABLE AS $$ SELECT public.is_plus(auth.uid()) $$;
+
+-- RPC: iniciar la prueba (una sola vez por cuenta, 2 días, sin tarjeta)
+CREATE OR REPLACE FUNCTION public.start_trial() RETURNS TIMESTAMPTZ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE ends TIMESTAMPTZ;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Debes iniciar sesión'; END IF;
+  INSERT INTO profiles (id) VALUES (auth.uid()) ON CONFLICT DO NOTHING;
+  UPDATE profiles SET trial_used = TRUE, trial_started_at = now(), trial_ends_at = now() + interval '2 days'
+   WHERE id = auth.uid() AND trial_used = FALSE
+   RETURNING trial_ends_at INTO ends;
+  IF ends IS NULL THEN RAISE EXCEPTION 'Ya usaste tu prueba gratis de Plus en esta cuenta.'; END IF;
+  RETURN ends;
+END $$;
+REVOKE ALL ON FUNCTION public.start_trial() FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.start_trial() TO authenticated;
+
+-- registro de eventos de pago (idempotencia/auditoría; solo service_role)
+CREATE TABLE IF NOT EXISTS public.pagos_eventos (
+  id BIGSERIAL PRIMARY KEY, proveedor TEXT DEFAULT 'tilopay', evento TEXT, email TEXT, order_number TEXT,
+  payload JSONB, verificado BOOLEAN, created_at TIMESTAMPTZ DEFAULT now());
+ALTER TABLE public.pagos_eventos ENABLE ROW LEVEL SECURITY;  -- sin políticas: nadie del cliente lo lee
