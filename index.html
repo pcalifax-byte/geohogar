@@ -20,19 +20,26 @@
 .mm-fade{animation:mmFade .25s}@keyframes mmFade{from{opacity:0}to{opacity:1}}
 .mm-grow{animation:mmGrow .6s ease-out both;transform-origin:bottom}@keyframes mmGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 .mm-pulse{animation:mmPulse 2.4s ease-in-out 2}@keyframes mmPulse{50%{box-shadow:0 0 0 8px #16a34a33}}
+
+.mm-scroll{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x;scroll-snap-type:x proximity;padding-bottom:2px}
+.mm-scroll::-webkit-scrollbar{display:none}.mm-scroll>*{flex:0 0 auto;scroll-snap-align:start}
+@media(max-width:639px){#upd{display:none!important}}
+@media(min-width:768px){.mm-wrap-md{flex-wrap:wrap;overflow:visible}}
+#q::-webkit-search-decoration,#q::-webkit-search-results-button{-webkit-appearance:none}
+@media(max-width:767px){header .mm-scroll{mask-image:linear-gradient(90deg,#000 92%,transparent);-webkit-mask-image:linear-gradient(90deg,#000 92%,transparent)}}
 @media (prefers-reduced-motion:reduce){.pb,.mm-slide,.mm-pop,.mm-fade,.mm-grow,.mm-pulse{animation:none}}</style></head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-hidden">
 <div id="map" class="fixed inset-0 z-0"></div>
 
 <!-- Barra superior flotante -->
 <header class="fixed top-2 inset-x-2 z-[1000] bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-2xl shadow-xl p-2 text-sm">
- <div class="flex gap-2 items-center">
+ <div class="flex flex-wrap md:flex-nowrap gap-2 items-center">
   <b class="text-teal-700 dark:text-teal-400 whitespace-nowrap">📍 MapMarket</b>
-  <input id="q" placeholder="Ciudad, provincia o zona…" class="flex-1 min-w-0 px-3 py-1.5 rounded-lg border dark:bg-slate-700 dark:border-slate-600">
-  <span id="upd" class="hidden sm:inline text-[10px] bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-2 py-0.5 rounded-full whitespace-nowrap"></span><a href="cuenta.html" id="bTrial" class="hidden px-2 py-1 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-800 dark:text-violet-200 whitespace-nowrap text-[11px] font-semibold"></a><a href="planes.html" id="bPlus" class="px-2 py-1.5 rounded-lg bg-violet-600 text-white whitespace-nowrap text-xs font-semibold">⭐<span class="hidden sm:inline"> Plus</span></a><a href="login.html" id="bUser" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap flex items-center gap-1" title="Cuenta">👤<span class="hidden lg:inline text-xs">Entrar</span></a><button id="bGuide" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap" title="Guía de compra">📋<span class="hidden lg:inline"> Guía de compra</span></button><button id="tgFilters" class="md:hidden px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Filtros">⚙️</button>
-  <button id="tgDark" class="px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Modo oscuro">🌓</button>
+  <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Ciudad, provincia o zona…" class="flex-1 min-w-0 h-9 px-3 rounded-lg border bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 appearance-none">
+  <div id="topBtns" class="mm-scroll flex gap-2 items-center w-full md:w-auto md:max-w-[60%]"><span id="upd" class="hidden sm:inline text-[10px] bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-2 py-0.5 rounded-full whitespace-nowrap"></span><a href="cuenta.html" id="bTrial" class="hidden px-2 py-1 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-800 dark:text-violet-200 whitespace-nowrap text-[11px] font-semibold"></a><a href="planes.html" id="bPlus" class="px-2 py-1.5 rounded-lg bg-violet-600 text-white whitespace-nowrap text-xs font-semibold">⭐<span class="hidden sm:inline"> Plus</span></a><a href="login.html" id="bUser" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap flex items-center gap-1" title="Cuenta">👤<span class="hidden lg:inline text-xs">Entrar</span></a><button id="bGuide" class="px-2 py-1.5 rounded-lg border dark:border-slate-600 whitespace-nowrap" title="Guía de compra">📋<span class="hidden lg:inline"> Guía de compra</span></button><button id="tgFilters" class="md:hidden px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Filtros">⚙️</button>
+  <button id="tgDark" class="px-2 py-1.5 rounded-lg border dark:border-slate-600" aria-label="Modo oscuro">🌓</button></div>
  </div>
- <div id="filters" class="hidden md:flex flex-wrap gap-2 items-center mt-2">
+ <div id="filters" class="mm-scroll mm-wrap-md hidden md:flex gap-2 items-center mt-2">
   <select id="fType" class="px-2 py-1 rounded-lg border dark:bg-slate-700 dark:border-slate-600"><option value="">Todo tipo</option></select>
   <select id="fProv" class="px-2 py-1 rounded-lg border dark:bg-slate-700 dark:border-slate-600"><option value="">Toda provincia</option></select>
   <select id="fBeds" class="px-2 py-1 rounded-lg border dark:bg-slate-700 dark:border-slate-600"><option value="0">Habitaciones</option><option value="1">1+ hab.</option><option value="2">2+ hab.</option><option value="3">3+ hab.</option><option value="4">4+ hab.</option></select>
@@ -41,7 +48,7 @@
   <label class="flex items-center gap-1">Máx: <b id="pv" class="w-20"></b><input id="fPrice" type="range" min="0" max="100" value="100" class="w-28 accent-teal-600"></label>
   <span id="fxLbl" class="text-[10px] opacity-70" title="Tipo de cambio de referencia">₡→$ 1 USD ≈ 455 CRC (BCCR 10 oct 2026, dato aportado)</span>
  </div>
- <div id="layers" class="hidden md:flex flex-wrap gap-1.5 items-center mt-2">
+ <div id="layers" class="mm-scroll mm-wrap-md hidden md:flex gap-1.5 items-center mt-2">
   <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="plusvalia">📈 Plusvalía</button>
   <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="servicios">🛒 Servicios y Comercio</button>
   <button class="chip px-2 py-1 rounded-full border dark:border-slate-600" data-layer="transporte">🚆 Transporte</button>
@@ -276,7 +283,7 @@ const App={all:[],visible:[],
   $('tgFilters').onclick=()=>['filters','layers'].forEach(i=>{$(i).classList.toggle('hidden');$(i).classList.toggle('flex')});
   await this.reload();
   const fill=(id,v)=>[...new Set(v)].filter(Boolean).sort().forEach(x=>$(id).add(new Option(x,x)));fill('fType',this.all.map(p=>p.type));fill('fProv',this.all.map(p=>p.province));$('fAmenP').innerHTML=Object.entries(AMEN_GROUPS).map(([g,ks])=>`<div class="font-bold mt-1">${g==='Casa'?'🏡 Casa':'🏢 Condominio / apartamento'}</div>`+ks.map(k=>`<label class="flex gap-1 items-center py-0.5"><input type="checkbox" class="fA" value="${k}"> ${AMEN_LBL[k]} <span class="opacity-50 ml-auto">${this.all.filter(p=>(p.amenidades||[]).includes(k)).length}</span></label>`).join('')).join('')+'<button id="fAclr" class="mt-2 text-red-600">Limpiar</button>';
-  $('fAmenB').onclick=e=>{e.stopPropagation();$('fAmenP').classList.toggle('hidden')};$('fAmenP').onclick=e=>e.stopPropagation();document.addEventListener('click',()=>$('fAmenP').classList.add('hidden'));
+  $('fAmenB').onclick=e=>{e.stopPropagation();const P=$('fAmenP');if(P.parentNode!==document.body)document.body.appendChild(P);const R=e.currentTarget.getBoundingClientRect();Object.assign(P.style,{position:'fixed',top:(R.bottom+4)+'px',left:Math.max(8,Math.min(R.left,innerWidth-296))+'px',zIndex:2000});P.classList.toggle('hidden')};$('filters').addEventListener('scroll',()=>$('fAmenP').classList.add('hidden'),{passive:true});$('fAmenP').onclick=e=>e.stopPropagation();document.addEventListener('click',()=>$('fAmenP').classList.add('hidden'));
   const upA=()=>{Filters.state.amen=[...document.querySelectorAll('.fA:checked')].map(x=>x.value);$('fAmenB').textContent='Amenidades'+(Filters.state.amen.length?` (${Filters.state.amen.length})`:'')+' ▾';this.refresh()};
   document.querySelectorAll('.fA').forEach(x=>x.onchange=upA);$('fAclr').onclick=()=>{document.querySelectorAll('.fA').forEach(x=>x.checked=false);upA()};
   $('bGuide').onclick=()=>UI.guide(UI.cur);
