@@ -331,6 +331,7 @@
       // enlace profundo ?p=<id>
       const pid = new URLSearchParams(location.search).get('p'); if (pid) setTimeout(() => Feat.open(pid), 300);
       App.refresh();
+      window.dispatchEvent(new Event('mm-feat-ready'));
     }
   };
 })();

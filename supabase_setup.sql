@@ -351,3 +351,195 @@ REVOKE UPDATE ON public.profiles FROM authenticated;
 GRANT UPDATE (nombre) ON public.profiles TO authenticated;
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v3 (ONVO) listo ✅' AS resultado;
+
+-- =====================================================================
+-- v4 · Mensajes entre usuarios + votos 👍/👎. Idempotente.
+-- =====================================================================
+-- Dueño de un anuncio publicado en MapMarket (anuncios de usuarios/agentes). Anuncios scrapeados no tienen dueño → soporte.
+CREATE TABLE IF NOT EXISTS public.anuncios_duenos (
+  listing_id TEXT PRIMARY KEY CHECK (char_length(listing_id) <= 64),
+  owner_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.conversaciones (
+  id BIGSERIAL PRIMARY KEY,
+  listing_id TEXT NOT NULL CHECK (char_length(listing_id) <= 64),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,        -- quien inicia
+  owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,                -- NULL = bandeja «MapMarket soporte»
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS conversaciones_uq ON public.conversaciones (listing_id, user_id);
+CREATE INDEX IF NOT EXISTS conversaciones_owner_idx ON public.conversaciones (owner_id);
+CREATE TABLE IF NOT EXISTS public.mensajes (
+  id BIGSERIAL PRIMARY KEY,
+  conversacion_id BIGINT NOT NULL REFERENCES public.conversaciones(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  texto TEXT NOT NULL CHECK (char_length(btrim(texto)) BETWEEN 1 AND 1000),
+  leido BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mensajes_conv_idx ON public.mensajes (conversacion_id, created_at);
+CREATE INDEX IF NOT EXISTS mensajes_sender_time_idx ON public.mensajes (sender_id, created_at);
+CREATE TABLE IF NOT EXISTS public.bloqueos (
+  blocker_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  blocked_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (blocker_id, blocked_id)
+);
+CREATE TABLE IF NOT EXISTS public.reportes_usuarios (
+  id BIGSERIAL PRIMARY KEY,
+  reporter_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  reported_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  conversacion_id BIGINT REFERENCES public.conversaciones(id) ON DELETE SET NULL,
+  motivo TEXT NOT NULL CHECK (char_length(motivo) BETWEEN 1 AND 500),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.votos (
+  user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  listing_id TEXT NOT NULL CHECK (char_length(listing_id) <= 64),
+  valor SMALLINT NOT NULL CHECK (valor IN (-1, 1)),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, listing_id)
+);
+CREATE INDEX IF NOT EXISTS votos_listing_idx ON public.votos (listing_id);
+
+-- ¿Es participante (o admin en la bandeja de soporte)?
+CREATE OR REPLACE FUNCTION public.es_participante(conv BIGINT) RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM conversaciones c WHERE c.id = conv AND (
+    c.user_id = auth.uid() OR c.owner_id = auth.uid()
+    OR (c.owner_id IS NULL AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.rol = 'admin'))));
+$$;
+
+-- Iniciar (o retomar) conversación sobre un anuncio
+CREATE OR REPLACE FUNCTION public.iniciar_conversacion(listing TEXT) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE dueno UUID; cid BIGINT;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Debes iniciar sesión'; END IF;
+  IF listing IS NULL OR char_length(listing) > 64 THEN RAISE EXCEPTION 'Anuncio inválido'; END IF;
+  SELECT owner_id INTO dueno FROM anuncios_duenos WHERE listing_id = listing;
+  IF dueno IS NULL THEN SELECT user_id INTO dueno FROM destacadas WHERE property_id = listing; END IF;
+  IF dueno = auth.uid() THEN RAISE EXCEPTION 'Este anuncio es tuyo'; END IF;
+  INSERT INTO conversaciones (listing_id, user_id, owner_id) VALUES (listing, auth.uid(), dueno)
+  ON CONFLICT (listing_id, user_id) DO UPDATE SET last_at = conversaciones.last_at
+  RETURNING id INTO cid;
+  RETURN cid;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.marcar_leidos(conv BIGINT) RETURNS INTEGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE n INTEGER;
+BEGIN
+  IF NOT public.es_participante(conv) THEN RAISE EXCEPTION 'Sin acceso'; END IF;
+  UPDATE mensajes SET leido = TRUE WHERE conversacion_id = conv AND sender_id <> auth.uid() AND NOT leido;
+  GET DIAGNOSTICS n = ROW_COUNT; RETURN n;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.no_leidos() RETURNS BIGINT
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT count(*) FROM mensajes m JOIN conversaciones c ON c.id = m.conversacion_id
+  WHERE m.sender_id <> auth.uid() AND NOT m.leido AND (c.user_id = auth.uid() OR c.owner_id = auth.uid());
+$$;
+
+-- Anti-spam y bloqueos: máx. 8 mensajes/minuto y 200/día por usuario; no se puede escribir a quien te bloqueó
+CREATE OR REPLACE FUNCTION public.mensajes_guardia() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE otro UUID; c RECORD;
+BEGIN
+  NEW.sender_id := auth.uid(); NEW.leido := FALSE; NEW.created_at := now(); NEW.texto := btrim(NEW.texto);
+  IF (SELECT count(*) FROM mensajes WHERE sender_id = NEW.sender_id AND created_at > now() - interval '1 minute') >= 8 THEN
+    RAISE EXCEPTION 'Demasiados mensajes seguidos. Espera un minuto.'; END IF;
+  IF (SELECT count(*) FROM mensajes WHERE sender_id = NEW.sender_id AND created_at > now() - interval '1 day') >= 200 THEN
+    RAISE EXCEPTION 'Límite diario de mensajes alcanzado.'; END IF;
+  SELECT * INTO c FROM conversaciones WHERE id = NEW.conversacion_id;
+  otro := CASE WHEN c.user_id = NEW.sender_id THEN c.owner_id ELSE c.user_id END;
+  IF otro IS NOT NULL AND EXISTS (SELECT 1 FROM bloqueos WHERE blocker_id = otro AND blocked_id = NEW.sender_id) THEN
+    RAISE EXCEPTION 'No puedes enviar mensajes en esta conversación.'; END IF;
+  UPDATE conversaciones SET last_at = now() WHERE id = NEW.conversacion_id;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS mensajes_guardia_trg ON public.mensajes;
+CREATE TRIGGER mensajes_guardia_trg BEFORE INSERT ON public.mensajes FOR EACH ROW EXECUTE FUNCTION public.mensajes_guardia();
+
+-- Votos agregados
+CREATE OR REPLACE FUNCTION public.votos_resumen(ids TEXT[])
+RETURNS TABLE (listing_id TEXT, likes BIGINT, dislikes BIGINT)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT v.listing_id, count(*) FILTER (WHERE v.valor = 1), count(*) FILTER (WHERE v.valor = -1)
+  FROM votos v WHERE v.listing_id = ANY (ids[1:500]) GROUP BY v.listing_id;
+$$;
+CREATE OR REPLACE FUNCTION public.mas_gustados(n INTEGER DEFAULT 50)
+RETURNS TABLE (listing_id TEXT, likes BIGINT, dislikes BIGINT, score BIGINT)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT v.listing_id, count(*) FILTER (WHERE v.valor = 1), count(*) FILTER (WHERE v.valor = -1), sum(v.valor)
+  FROM votos v GROUP BY v.listing_id HAVING sum(v.valor) > 0 ORDER BY sum(v.valor) DESC, count(*) DESC LIMIT least(greatest(n, 1), 200);
+$$;
+CREATE OR REPLACE VIEW public.votos_totales WITH (security_invoker = true) AS
+  SELECT listing_id, sum(valor) AS score FROM public.votos GROUP BY listing_id;
+
+-- Permisos
+ALTER TABLE public.anuncios_duenos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversaciones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mensajes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bloqueos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reportes_usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.votos ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.anuncios_duenos, public.conversaciones, public.mensajes, public.bloqueos, public.reportes_usuarios, public.votos FROM anon;
+GRANT SELECT, INSERT, DELETE ON public.anuncios_duenos TO authenticated;
+GRANT SELECT ON public.conversaciones TO authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.conversaciones FROM authenticated;   -- se crean solo con iniciar_conversacion()
+GRANT SELECT, INSERT ON public.mensajes TO authenticated;
+REVOKE UPDATE, DELETE ON public.mensajes FROM authenticated;                 -- leído solo vía marcar_leidos()
+GRANT USAGE, SELECT ON SEQUENCE public.mensajes_id_seq, public.reportes_usuarios_id_seq TO authenticated;
+GRANT SELECT, INSERT, DELETE ON public.bloqueos TO authenticated;
+GRANT INSERT ON public.reportes_usuarios TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.votos TO authenticated;
+GRANT SELECT ON public.votos_totales TO authenticated;
+REVOKE ALL ON FUNCTION public.iniciar_conversacion(TEXT), public.marcar_leidos(BIGINT), public.no_leidos(), public.es_participante(BIGINT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.iniciar_conversacion(TEXT), public.marcar_leidos(BIGINT), public.no_leidos(), public.es_participante(BIGINT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.votos_resumen(TEXT[]), public.mas_gustados(INTEGER) TO anon, authenticated;
+
+DROP POLICY IF EXISTS "duenos lectura" ON public.anuncios_duenos;
+CREATE POLICY "duenos lectura" ON public.anuncios_duenos FOR SELECT TO authenticated USING (owner_id = auth.uid());
+DROP POLICY IF EXISTS "duenos registrar" ON public.anuncios_duenos;
+CREATE POLICY "duenos registrar" ON public.anuncios_duenos FOR INSERT TO authenticated WITH CHECK (owner_id = auth.uid() AND listing_id LIKE 'local-%');
+DROP POLICY IF EXISTS "duenos borrar" ON public.anuncios_duenos;
+CREATE POLICY "duenos borrar" ON public.anuncios_duenos FOR DELETE TO authenticated USING (owner_id = auth.uid());
+
+DROP POLICY IF EXISTS "conversaciones participantes" ON public.conversaciones;
+CREATE POLICY "conversaciones participantes" ON public.conversaciones FOR SELECT TO authenticated USING (public.es_participante(id));
+DROP POLICY IF EXISTS "mensajes leer" ON public.mensajes;
+CREATE POLICY "mensajes leer" ON public.mensajes FOR SELECT TO authenticated USING (public.es_participante(conversacion_id));
+DROP POLICY IF EXISTS "mensajes escribir" ON public.mensajes;
+CREATE POLICY "mensajes escribir" ON public.mensajes FOR INSERT TO authenticated WITH CHECK (sender_id = auth.uid() AND public.es_participante(conversacion_id));
+
+DROP POLICY IF EXISTS "bloqueos propios" ON public.bloqueos;
+CREATE POLICY "bloqueos propios" ON public.bloqueos FOR SELECT TO authenticated USING (blocker_id = auth.uid());
+DROP POLICY IF EXISTS "bloquear" ON public.bloqueos;
+CREATE POLICY "bloquear" ON public.bloqueos FOR INSERT TO authenticated WITH CHECK (blocker_id = auth.uid() AND blocked_id <> auth.uid());
+DROP POLICY IF EXISTS "desbloquear" ON public.bloqueos;
+CREATE POLICY "desbloquear" ON public.bloqueos FOR DELETE TO authenticated USING (blocker_id = auth.uid());
+DROP POLICY IF EXISTS "reportar usuario" ON public.reportes_usuarios;
+CREATE POLICY "reportar usuario" ON public.reportes_usuarios FOR INSERT TO authenticated WITH CHECK (reporter_id = auth.uid());
+
+DROP POLICY IF EXISTS "votos propios" ON public.votos;
+CREATE POLICY "votos propios" ON public.votos FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "votar" ON public.votos;
+CREATE POLICY "votar" ON public.votos FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "cambiar voto" ON public.votos;
+CREATE POLICY "cambiar voto" ON public.votos FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "quitar voto" ON public.votos;
+CREATE POLICY "quitar voto" ON public.votos FOR DELETE TO authenticated USING (user_id = auth.uid());
+
+-- Realtime para mensajes (respeta RLS)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'mensajes') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.mensajes;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v4 (mensajes + votos) listo ✅' AS resultado;
