@@ -1,3 +1,12 @@
 scripts/update.log
 scripts/cache/
 __pycache__/
+
+# Android
+android/keystore/
+*.jks
+*.keystore
+android/**/build/
+android/.gradle/
+android/local.properties
+node_modules/

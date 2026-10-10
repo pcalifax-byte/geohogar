@@ -1,0 +1,20 @@
+{
+  "name": "MapMarket · Bienes raíces en Costa Rica",
+  "short_name": "MapMarket",
+  "description": "Propiedades, remates y bienes adjudicados de Costa Rica en un mapa.",
+  "id": "/geohogar/",
+  "start_url": "/geohogar/index.html?source=pwa",
+  "scope": "/geohogar/",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "es-CR",
+  "background_color": "#0f172a",
+  "theme_color": "#0d9488",
+  "categories": ["lifestyle", "business"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
