@@ -1,5 +1,5 @@
 {
- "last_updated": "2026-10-10T18:05:00Z",
+ "last_updated": "2026-10-10T19:11:59Z",
  "fuentes": {
   "propiedades": [
    "encuentra24.com",
@@ -9,5 +9,23 @@
   "tbp": "BCCR",
   "tasas_bancos": "reportado por el usuario",
   "mercado": "anuntico.com"
+ },
+ "ultimo_resumen": {
+  "tipo_cambio": {
+   "compra": 449.86,
+   "venta": 455.6,
+   "fecha": "2026-10-10",
+   "fuente": "BCCR (bccr.fi.cr, indicadores 317/318)",
+   "cambio": false
+  },
+  "tasas_cambiadas": [],
+  "anuncios": {
+   "revisados": 200,
+   "nuevas_vendidas": 0,
+   "nuevas_retiradas": 0,
+   "reactivadas": 0,
+   "sin_cambio_error": 0
+  },
+  "nuevas": 20
  }
 }
