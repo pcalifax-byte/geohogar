@@ -33,10 +33,11 @@
         const pago = s.plan === 'plus' && (!s.plus_until || new Date(s.plus_until) > new Date()); const trial = !!ends && ends > new Date();
         return { ...s, demo: true, trial_used: !!t, trial_ends_at: t || null, trial_activo: trial && !pago, pagado: pago, plan: pago || trial ? 'plus' : 'gratis' } }
       const c = await sbClient(); const { data } = await c.auth.getUser(); const u = data.user; if (!u) return null;
-      const { data: p } = await c.from('profiles').select('plan,plus_until,nombre,trial_used,trial_ends_at').eq('id', u.id).maybeSingle();
+      let { data: p, error: pe } = await c.from('profiles').select('plan,plus_until,nombre,trial_used,trial_ends_at,rol').eq('id', u.id).maybeSingle();
+      if (pe) ({ data: p } = await c.from('profiles').select('plan,plus_until,nombre,trial_used,trial_ends_at').eq('id', u.id).maybeSingle());
       const pago = !!p && p.plan === 'plus' && (!p.plus_until || new Date(p.plus_until) > new Date());
       const trial = !!p && !!p.trial_ends_at && new Date(p.trial_ends_at) > new Date();
-      return { id: u.id, email: u.email, nombre: (p && p.nombre) || u.email.split('@')[0], plan: pago || trial ? 'plus' : 'gratis', pagado: pago, trial_activo: trial && !pago, trial_used: !!(p && p.trial_used), trial_ends_at: p && p.trial_ends_at, plus_until: p && p.plus_until };
+      return { id: u.id, email: u.email, nombre: (p && p.nombre) || u.email.split('@')[0], plan: pago || trial ? 'plus' : 'gratis', pagado: pago, trial_activo: trial && !pago, trial_used: !!(p && p.trial_used), trial_ends_at: p && p.trial_ends_at, plus_until: p && p.plus_until, rol: p && p.rol };
     },
     async signUp(email, password, nombre) {
       if (DEMO) { const us = j(K.u, {}); if (us[email]) throw new Error('Ya existe una cuenta demo con ese correo.'); us[email] = { password, nombre }; localStorage.setItem(K.u, JSON.stringify(us)); return this._demoLogin(email) }

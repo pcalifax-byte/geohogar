@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0d9488"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" type="image/png" href="icons/favicon.png"><script>if("serviceWorker" in navigator&&location.protocol==="https:")addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))</script><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>MapMarket · Bienes raíces en Costa Rica</title>
-<script src="https://cdn.tailwindcss.com"></script><script src="js/config.js"></script><script src="js/auth.js"></script><script>tailwind.config={darkMode:'class'}</script>
+<script src="https://cdn.tailwindcss.com"></script><script src="js/config.js"></script><script src="js/auth.js"></script><script src="js/features.js" defer></script><script>tailwind.config={darkMode:'class'}</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"><link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <style>html,body,#map{height:100%;margin:0}
 .pb{background:#0f766e;color:#fff;font:600 11px system-ui,sans-serif;padding:2px 7px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 4px #0007;border:1.5px solid #fff;transform:translate(-50%,-50%);display:inline-block;cursor:pointer}
@@ -10,7 +10,17 @@
 .chip.on{background:#0f766e;color:#fff;border-color:#0f766e}
 .poi{font-size:16px;line-height:16px;text-shadow:0 0 3px #fff}
 .dark.osm .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
-.dark .leaflet-container{background:#1e293b}</style></head>
+.dark .leaflet-container{background:#1e293b}
+.pb.t-casa{background:#0f766e}.pb.t-playa{background:#0284c7}.pb.t-apto{background:#4f46e5}.pb.t-lote{background:#65a30d}.pb.t-com{background:#7c3aed}.pb.t-otro{background:#475569}
+.pb.ap{border-style:dashed}.pb.demo{background:#db2777}.pb.mine{background:#7c3aed}.pb.off{background:#9ca3af}.pb.dest{background:#f59e0b;color:#422006;border-color:#fff;box-shadow:0 0 0 3px #f59e0b55,0 2px 6px #0008;font-weight:800}
+.pb{animation:mmIn .35s ease-out both;transition:transform .15s}.pb:hover{transform:translate(-50%,-50%) scale(1.12)}
+@keyframes mmIn{from{opacity:0;transform:translate(-50%,-30%) scale(.6)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.mm-slide{animation:mmSlide .28s ease-out}@keyframes mmSlide{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.mm-pop{animation:mmPop .25s ease-out}@keyframes mmPop{from{opacity:0;transform:translate(-50%,10px) scale(.95)}to{opacity:1}}
+.mm-fade{animation:mmFade .25s}@keyframes mmFade{from{opacity:0}to{opacity:1}}
+.mm-grow{animation:mmGrow .6s ease-out both;transform-origin:bottom}@keyframes mmGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.mm-pulse{animation:mmPulse 2.4s ease-in-out 2}@keyframes mmPulse{50%{box-shadow:0 0 0 8px #16a34a33}}
+@media (prefers-reduced-motion:reduce){.pb,.mm-slide,.mm-pop,.mm-fade,.mm-grow,.mm-pulse{animation:none}}</style></head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-hidden">
 <div id="map" class="fixed inset-0 z-0"></div>
 
@@ -426,5 +436,5 @@ async function loadData(){const g=n=>fetch(CONFIG.dataBase+n+'?v='+Date.now().to
  FX=fx;TASAS=tasas;MERCADO=mercado;META=meta;CONFIG.USD_CRC=fx.referencia||fx.venta||455;
  $('fxLbl').textContent=`₡→$ 1 USD ≈ ${CONFIG.USD_CRC} CRC (BCCR compra ${fx.compra} / venta ${fx.venta}, ${fx.fecha})`;
  $('upd').textContent='Actualizado: '+new Date(meta.last_updated).toLocaleString('es-CR',{dateStyle:'medium',timeStyle:'short'})}
-window.addEventListener('DOMContentLoaded',async()=>{try{await loadData()}catch(e){alert('No se pudieron cargar los datos: '+e.message);return}App.init();Chat.init();Plus.init()});
+window.addEventListener('DOMContentLoaded',async()=>{try{await loadData()}catch(e){alert('No se pudieron cargar los datos: '+e.message);return}App.init();Chat.init();Plus.init().then(()=>Feat.init())});
 </script></body></html>
