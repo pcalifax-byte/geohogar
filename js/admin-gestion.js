@@ -34,7 +34,7 @@
       <label class="text-xs flex items-center gap-1"><input id="uExt" type="checkbox" checked> Extender desde el vencimiento actual</label></div>
       <p class="text-xs opacity-70 mb-2">${tot} usuarios · página ${U.p + 1} de ${Math.max(1, Math.ceil(tot / 25))}</p>
       ${rows.map(u => `<article data-id="${u.id}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm">
-        <div class="flex flex-wrap gap-x-3 gap-y-1 items-baseline"><b>${E(u.email)}</b><span>${E(u.nombre || '')}</span><span class="text-xs rounded-full px-2 ${u.rol === 'admin' ? 'bg-red-100 text-red-800' : u.rol === 'agente' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}">${u.rol}</span>
+        <div class="flex flex-wrap gap-x-3 gap-y-1 items-baseline"><a class="mmUL font-bold underline decoration-dotted" href="perfil.html?id=${u.id}" target="_blank" title="Ver perfil">${E(u.email)}</a><span>${E(u.nombre || '')}</span><span class="text-xs rounded-full px-2 ${u.rol === 'admin' ? 'bg-red-100 text-red-800' : u.rol === 'agente' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}">${u.rol}</span>
           <span class="text-xs rounded-full px-2 ${u.plus_activo ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-700'}">${u.plan === 'pro' ? '💎 Pro' : u.plus_activo ? '⭐ Plus' : 'Gratis'}${u.plus_origen ? ' · ' + E(u.plus_origen) : ''}</span>
           ${u.trial_ends_at && new Date(u.trial_ends_at) > new Date() ? '<span class="text-xs">⏳ prueba hasta ' + d(u.trial_ends_at) + '</span>' : u.trial_used ? '<span class="text-xs opacity-60">prueba usada</span>' : ''}</div>
         <div class="text-xs opacity-70 mt-1">Alta ${d(u.created_at)} · último acceso ${d(u.last_sign_in)} · Plus hasta ${d(u.plus_until)} · ❤️ ${u.favoritos} · 🏠 ${u.publicaciones} · 💬 ${u.mensajes}</div>
@@ -62,6 +62,7 @@
   T.anuncios = ['📋 Anuncios', async () => {
     let qy = C.from('anuncios').select('*').order('created_at', { ascending: false }).limit(200); if (A.e) qy = qy.eq('estado', A.e); if (A.q) qy = qy.ilike('titulo', '%' + A.q + '%');
     const { data, error } = await qy; if (error) throw error;
+    const _ow = [...new Set((data || []).map(x => x.owner_id).filter(Boolean))]; const PFA = _ow.length ? Object.fromEntries(((await C.from('profiles').select('id,nombre').in('id', _ow)).data || []).map(x => [x.id, x.nombre])) : {};
     let demos = []; try { const j = await (await fetch('data/propiedades.json', { cache: 'no-store' })).json(); demos = (Array.isArray(j) ? j : j.items || j.propiedades || []).filter(x => x.demo) } catch (e) {}
     const { data: ocs } = await C.from('anuncios_ocultos').select('id'); const H = new Set((ocs || []).map(x => String(x.id)));
     bind(async (g, b, r) => {
@@ -83,7 +84,7 @@
         ${demos.map(x => `<label class="flex gap-2 items-center py-1 border-t dark:border-slate-700 ${H.has(String(x.id)) ? 'opacity-40 line-through' : ''}"><input type="checkbox" class="dsel w-5 h-5" value="${E(String(x.id))}" ${H.has(String(x.id)) ? 'disabled' : ''}> ${E(x.title)} · ${E(x.province || '')}</label>`).join('')}</details>
       ${data.map(a => `<article data-id="${a.id}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm flex gap-3"><input type="checkbox" class="gsel w-5 h-5 mt-1" value="${a.id}" aria-label="Seleccionar">
         ${a.imagenes?.[0] ? `<img src="${E(a.imagenes[0])}" alt="Foto" loading="lazy" class="w-20 h-20 object-cover rounded">` : ''}
-        <div class="flex-1 min-w-0"><b>${E(a.titulo)}</b> <span class="text-xs rounded-full px-2 bg-slate-100 text-slate-700">${a.estado}</span><div class="text-xs opacity-70">${E(a.tipo)} · ${E(a.provincia)} · ${money(a)} · ${d(a.created_at)}${a.motivo_rechazo ? ' · motivo: ' + E(a.motivo_rechazo) : ''}</div>
+        <div class="flex-1 min-w-0"><b>${E(a.titulo)}</b> <span class="text-xs rounded-full px-2 bg-slate-100 text-slate-700">${a.estado}</span><div class="text-xs opacity-70">${E(a.tipo)} · ${E(a.provincia)} · ${money(a)} · ${d(a.created_at)}${a.owner_id ? ` · Dueño: <a class="mmUL underline decoration-dotted" href="perfil.html?id=${a.owner_id}" target="_blank">${E(PFA[a.owner_id] || a.owner_id.slice(0, 8))}</a>` : ''}${a.motivo_rechazo ? ' · motivo: ' + E(a.motivo_rechazo) : ''}</div>
         <div class="flex flex-wrap gap-1.5 mt-2">${a.estado !== 'aprobado' ? btn('aprobar', '✅ Aprobar') : ''}${btn('rechazar', '⛔ Rechazar')}${a.estado === 'pausado' ? btn('reactivar', '▶️ Reactivar') : btn('pausar', '⏸ Pausar')}${btn('editar', '✏️ Editar')}${btn('eliminar', '🗑️ Eliminar', 'text-red-600')}</div></div></article>`).join('') || '<p>Sin anuncios.</p>'}`;
   }];
 
@@ -132,7 +133,7 @@
       <p class="text-xs opacity-70 mb-2">${data.length} reseñas</p>
       ${data.map(x => `<article data-id="${x.id}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm flex gap-3"><input type="checkbox" class="rsel w-5 h-5 mt-1" value="${x.id}" aria-label="Seleccionar"><div class="flex-1 min-w-0">
         <div><span class="text-amber-500 text-base">${st(x.estrellas)}</span> <span class="text-xs rounded-full px-2 bg-slate-100 dark:bg-slate-700">${x.estado}</span>${x.reportes ? ` <span class="text-xs rounded-full px-2 bg-red-100 text-red-800">🚩 ${x.reportes}</span>` : ''}</div>
-        <div class="text-xs opacity-70">${E(x.autor)} → <a class="underline" href="perfil.html?id=${x.agente_id}" target="_blank">${E(x.agente)}</a> · ${d(x.created_at)}</div>${x.comentario ? `<p class="mt-1">${E(x.comentario)}</p>` : ''}
+        <div class="text-xs opacity-70">${x.autor_id ? `<a class="mmUL underline decoration-dotted" href="perfil.html?id=${x.autor_id}" target="_blank">${E(x.autor)}</a>` : E(x.autor)} → <a class="underline" href="perfil.html?id=${x.agente_id}" target="_blank">${E(x.agente)}</a> · ${d(x.created_at)}</div>${x.comentario ? `<p class="mt-1">${E(x.comentario)}</p>` : ''}
         <div class="flex flex-wrap gap-1.5 mt-2">${btn('aprobar', '✅ Aprobar')}${btn('rechazar', '⛔ Rechazar')}${x.reportes ? btn('limpiar_reportes', 'Quitar reportes') : ''}${btn('eliminar', '🗑️ Eliminar', 'text-red-600')}</div></div></article>`).join('') || '<p class="opacity-60">Sin reseñas.</p>'}`;
   }];
 
@@ -175,7 +176,7 @@
         return `<article data-id="${E(pid)}" data-pid="${E(pid)}" data-rids="${rs.map(x => x.id).join(',')}" data-owner="${a?.owner_id || ''}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm flex gap-3"><input type="checkbox" class="gsel w-5 h-5 mt-1" value="${E(pid)}" aria-label="Seleccionar">
         ${a?.imagenes?.[0] ? `<img src="${E(a.imagenes[0])}" alt="Foto" loading="lazy" class="w-20 h-20 object-cover rounded">` : '<div class="w-20 h-20 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs">Sin fotos</div>'}
         <div class="flex-1 min-w-0"><div class="flex flex-wrap gap-1 items-center"><b>${E(a?.titulo || pid)}</b>${a ? chip(a.estado, est[a.estado]) : chip('sin dueño en MapMarket')}${chip('🚩 ' + rs.length, 'bg-red-100 text-red-900 dark:bg-red-900 dark:text-red-100')}${abiertos ? '' : chip('cerrado')}</div>
-          <div class="text-xs opacity-70">${a ? `${E(a.tipo)} · ${E(a.provincia)} · ${money(a)} · ` : ''}${o ? `Dueño: ${E(o.nombre || a.owner_id.slice(0, 8))}${o.baneado ? ' (suspendido)' : ''}` : ''}</div>
+          <div class="text-xs opacity-70">${a ? `${E(a.tipo)} · ${E(a.provincia)} · ${money(a)} · ` : ''}${o ? `Dueño: <a class="mmUL underline decoration-dotted" href="perfil.html?id=${a.owner_id}" target="_blank">${E(o.nombre || a.owner_id.slice(0, 8))}</a>${o.baneado ? ' (suspendido)' : ''}` : ''}</div>
           <div class="text-xs mt-1">${Object.entries(cnt).map(([k, v]) => chip(`${MOT[k] || k} ×${v}`, 'bg-amber-50 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100')).join(' ')}</div>
           <ul class="text-xs mt-1 opacity-80">${rs.slice(0, 5).map(x => `<li>${d(x.created_at)} · ${E(MOT[x.motivo] || x.motivo)}${x.detalle ? ': ' + E(x.detalle) : ''}${x.estado !== 'nuevo' ? ` · <i>${E(x.estado)}${x.nota_admin ? ' — ' + E(x.nota_admin) : ''}</i>` : ''}</li>`).join('')}${rs.length > 5 ? `<li>+${rs.length - 5}…</li>` : ''}</ul>
           <div class="flex flex-wrap gap-1.5 mt-2">${btn('mapa', '🗺️ Ver en mapa')}${a ? btn('editar', '✏️ Editar') + (a.estado === 'pausado' ? btn('reactivar', '▶️ Reactivar') : btn('pausar', '⏸ Pausar')) + btn('rechazar', '⛔ Rechazar') + btn('eliminar', '🗑️ Eliminar', 'text-red-600') + (a.owner_id ? btn('bloquear', '🚫 Bloquear dueño') : '') : ''}${abiertos ? btn('resuelto', '✔ Resuelto') + btn('descartado', '✖ Descartar') : btn('reabrir', '↩ Reabrir')}</div></div></article>` }).join('') || '<p class="opacity-70">Sin reportes.</p>'}

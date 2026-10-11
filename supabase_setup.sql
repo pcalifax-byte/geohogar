@@ -1766,3 +1766,27 @@ create or replace function public.admin_lista_resenas(p_estado text default null
 revoke execute on function public.admin_lista_resenas(text) from anon, public; grant execute on function public.admin_lista_resenas(text) to authenticated;
 notify pgrst, 'reload schema';
 select 1;
+-- v20: perfil para cualquier usuario (aunque no tenga anuncios) + vista admin enriquecida
+create or replace function public.perfil_publico(p_id uuid) returns json language sql stable security definer set search_path=public as $$
+  select json_build_object('id',p.id,'nombre',coalesce(nullif(trim(p.nombre),''),'Usuario'),
+    'foto_url',case when p.foto_url is not null and not exists (select 1 from imagenes_moderacion m where m.url=p.foto_url and m.estado in ('marcada','rechazada')) then p.foto_url end,
+    'rol',p.rol,'verificado',(select u.email_confirmed_at is not null from auth.users u where u.id=p.id),'desde',extract(year from p.created_at)::int,
+    'activos',(select count(*) from anuncios a where a.owner_id=p.id and a.estado='aprobado'))
+  from profiles p where p.id=p_id and (coalesce(p.baneado,false)=false or public.es_admin()) $$;
+revoke execute on function public.perfil_publico(uuid) from anon, public; grant execute on function public.perfil_publico(uuid) to authenticated;
+create or replace function public.admin_perfil(p_id uuid) returns json language plpgsql stable security definer set search_path=public as $$
+begin
+  if not public.es_admin() then raise exception 'solo admin' using errcode='42501'; end if;
+  return (select json_build_object(
+    'email',u.email,'rol',p.rol,'plan',p.plan,'plus_until',p.plus_until,'plus_origen',p.plus_origen,'trial_ends_at',p.trial_ends_at,'baneado',coalesce(p.baneado,false),
+    'telefono',p.telefono,'provincia',p.provincia,'canton',p.canton,'created_at',u.created_at,'last_sign_in_at',u.last_sign_in_at,'confirmado',u.email_confirmed_at is not null,
+    'anuncios',(select coalesce(json_agg(json_build_object('id',a.id,'titulo',a.titulo,'estado',a.estado,'precio',a.precio,'moneda',a.moneda,'created_at',a.created_at,'foto',a.imagenes[1]) order by a.created_at desc),'[]') from anuncios a where a.owner_id=p.id),
+    'resenas_recibidas',(select coalesce(json_agg(json_build_object('id',r.id,'estrellas',r.estrellas,'comentario',r.comentario,'estado',r.estado,'autor_id',r.autor_id) order by r.created_at desc),'[]') from resenas r where r.agente_id=p.id),
+    'resenas_escritas',(select count(*) from resenas r where r.autor_id=p.id),
+    'reportes_anuncios',(select count(*) from reportes rp join anuncios a on a.id::text=rp.property_id::text where a.owner_id=p.id),
+    'reportes_usuario',(select count(*) from reportes_usuarios ru where ru.reported_id=p.id),
+    'favoritos',(select count(*) from favoritos f where f.user_id=p.id),
+    'mensajes',(select count(*) from mensajes m where m.sender_id=p.id))
+  from profiles p join auth.users u on u.id=p.id where p.id=p_id);
+end $$;
+revoke execute on function public.admin_perfil(uuid) from anon, public; grant execute on function public.admin_perfil(uuid) to authenticated;

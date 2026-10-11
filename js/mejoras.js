@@ -36,7 +36,7 @@
     if (pc && !card.querySelector('.mmSticky')) {
       const u = waUrl(pc), s = document.createElement('div'); s.className = 'mmSticky'; const c = document.createElement(u ? 'a' : 'button');
       if (u) { c.href = u; c.rel = 'noopener'; c.innerHTML = '🟢 ' + E(T('Contactar por WhatsApp')); c.onclick = e => { e.preventDefault(); abrirWa(u) } }
-      else { c.type = 'button'; c.style.background = '#0f766e'; c.innerHTML = '💬 ' + E(T('Escribir por chat de MapMarket')) + `<span style="font-size:11px;font-weight:400;display:block;opacity:.85">${E(T('El anunciante aún no agregó WhatsApp'))}</span>`; c.style.flexDirection = 'column';
+      else { c.type = 'button'; c.style.background = '#13233d'; c.innerHTML = '💬 ' + E(T('Escribir por chat de MapMarket')) + `<span style="font-size:11px;font-weight:400;display:block;opacity:.85">${E(T('El anunciante aún no agregó WhatsApp'))}</span>`; c.style.flexDirection = 'column';
         c.onclick = () => { const b = [...card.querySelectorAll('button')].find(b => !b.closest('.mmSticky') && /mensaje|message|chat/i.test(b.textContent)); b ? b.click() : (location.href = 'mensajes.html') } }
       s.appendChild(c); card.appendChild(s);
       // los demás enlaces wa.me de la ficha apuntan al mismo número
@@ -46,6 +46,7 @@
     const p = (typeof UI !== 'undefined') && UI.cur;
     if (p && p.owner_id && !card.querySelector('.mmPerfil')) {
       const h = card.querySelector('h2'); if (h) h.insertAdjacentHTML('afterend', `<a class="mmPerfil inline-flex items-center gap-1 text-sm text-teal-700 dark:text-teal-300 underline" style="min-height:36px" href="perfil.html?id=${encodeURIComponent(p.owner_id)}">👤 ${T('Ver perfil del anunciante')} <span class="mmRat no-underline"></span></a>`);
+      (async () => { try { const c = await client(); const { data: pf } = await c.rpc('perfil_publico', { p_id: p.owner_id }); const l = card.querySelector('.mmPerfil'); if (pf && l) { const ini = (pf.nombre || 'A').trim()[0].toUpperCase(); l.insertAdjacentHTML('afterbegin', pf.foto_url ? `<img src="${String(pf.foto_url).replace(/"/g, '')}" alt="" class="w-8 h-8 rounded-full object-cover">` : `<span class="w-8 h-8 rounded-full grid place-items-center text-xs font-bold" style="background:#13233d;color:#e2c27a">${ini}</span>`); const nm = document.createElement('b'); nm.className = 'no-underline'; nm.setAttribute('data-noi18n', ''); nm.textContent = pf.nombre; l.insertBefore(nm, l.childNodes[1] || null); l.insertBefore(document.createTextNode(' · '), nm.nextSibling) } } catch (e) {} })();
       (async () => { try { const c = await client(); const { data } = await c.rpc('resumen_resenas', { ids: [p.owner_id] }); const r = data && data[0]; const el = card.querySelector('.mmRat'); if (r && r.total && el) el.innerHTML = `· <span class="text-amber-500">★</span> ${r.promedio} (${r.total})` } catch (e) {} })();
     }
     card.dataset.mmOk = card.innerHTML.length + '';
