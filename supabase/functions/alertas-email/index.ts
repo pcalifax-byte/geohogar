@@ -8,10 +8,10 @@ type P = { id: string; title: string; type: string; price: number | null; curren
 const pip = (x: number, y: number, ring: number[][]) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
 const enZona = (p: P, g: any) => !g || (g.type === "Polygon" && pip(p.lon, p.lat, g.coordinates[0]));
 const esc = (s: string) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
-async function correo(to: string, asunto: string, items: { p: P; usd: number; baja?: boolean }[]) {
+async function correo(to: string, asunto: string, items: { p: P; usd: number; baja?: boolean }[], en = false) {
   const key = Deno.env.get("RESEND_API_KEY"), from = Deno.env.get("ALERT_FROM");
   if (!key || !from) return "sin_proveedor";
-  const html = `<div style="font-family:sans-serif;max-width:560px"><h2 style="color:#0f766e">📍 MapMarket</h2><p>${esc(asunto)}</p><ul>${items.slice(0, 20).map(({ p, usd, baja }) => `<li style="margin:8px 0"><a href="${SITE}p/${encodeURIComponent(String(p.id))}.html">${esc(p.title)}</a> — ${baja ? "⬇️ bajó a " : ""}$${Math.round(usd).toLocaleString("es-CR")} · ${esc(p.province)}</li>`).join("")}</ul><p style="font-size:12px;color:#64748b">Recibes esto porque activaste alertas en MapMarket. Puedes desactivarlas en ${SITE}cuenta.html</p></div>`;
+  const html = `<div style="font-family:sans-serif;max-width:560px"><h2 style="color:#0f766e">📍 MapMarket</h2><p>${esc(asunto)}</p><ul>${items.slice(0, 20).map(({ p, usd, baja }) => `<li style="margin:8px 0"><a href="${SITE}p/${encodeURIComponent(String(p.id))}.html">${esc(p.title)}</a> — ${baja ? (en ? "⬇️ dropped to " : "⬇️ bajó a ") : ""}$${Math.round(usd).toLocaleString(en ? "en-US" : "es-CR")} · ${esc(p.province)}</li>`).join("")}</ul><p style="font-size:12px;color:#64748b">${en ? `You're receiving this because you turned on alerts on MapMarket. You can turn them off at ${SITE}cuenta.html?lang=en` : `Recibes esto porque activaste alertas en MapMarket. Puedes desactivarlas en ${SITE}cuenta.html`}</p></div>`;
   const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to, subject: asunto, html }) });
   return r.ok ? "enviado" : "error_" + r.status;
 }
@@ -41,7 +41,10 @@ Deno.serve(async (req) => {
     const nuevos = m.filter((p) => !seen.has(String(p.id)) || usd(p) < (seen.get(String(p.id))! * 0.97)).map((p) => ({ p, usd: usd(p), baja: seen.has(String(p.id)) }));
     if (nuevos.length) await db.from("alertas_envios").upsert(nuevos.map(({ p, usd }) => ({ alerta_tipo: j.tipo, alerta_id: j.id, item_id: String(p.id), precio: Math.round(usd), enviada_at: new Date().toISOString() })));
     if (base || !nuevos.length) continue;
-    const st = await correo(j.email, `${nuevos.length} novedad(es) para tu alerta «${j.nombre}»`, nuevos);
+    let en = false;
+    if (j.uid) { const { data: pf } = await db.from("profiles").select("idioma").eq("id", j.uid).maybeSingle(); en = pf?.idioma === "en"; }
+    const asunto = en ? `${nuevos.length} update${nuevos.length === 1 ? "" : "s"} for your alert "${j.nombre}"` : `${nuevos.length} novedad(es) para tu alerta «${j.nombre}»`;
+    const st = await correo(j.email, asunto, nuevos, en);
     resumen.estado_correo[st] = (resumen.estado_correo[st] ?? 0) + 1; resumen.items += nuevos.length; if (st === "enviado") resumen.correos++;
   }
   return new Response(JSON.stringify(resumen), { headers: { "Content-Type": "application/json" } });

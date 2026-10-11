@@ -1,0 +1,366 @@
+{
+ "version": 1,
+ "intents": [
+  {
+   "id": "mapa",
+   "keywords": [
+    "map",
+    "how does it work",
+    "markers",
+    "pins",
+    "zoom",
+    "use",
+    "mapa",
+    "usar",
+    "como funciona",
+    "marcadores",
+    "clusters",
+    "navegar"
+   ],
+   "answer": "The map shows each property with its price. Numbered circles group several: zoom in or click to split them. Tap a price to open the listing card with photos, details, WhatsApp and calculator. Featured listings have a ★ and appear first; [Example] listings are fictional; gray = sold/removed."
+  },
+  {
+   "id": "filtros",
+   "keywords": [
+    "filter",
+    "filters",
+    "search",
+    "type",
+    "province",
+    "bedrooms",
+    "filtro",
+    "filtrar",
+    "buscar",
+    "busqueda",
+    "tipo",
+    "provincia",
+    "precio",
+    "habitaciones",
+    "estado"
+   ],
+   "answer": "At the top you have: text search (city/area), type, province, bedrooms, amenities (multiple choice), status (active or sold/removed) and the maximum price control in USD. On mobile, tap ⚙️ to show them. You can also use \"📍 Near me\" or ask me something like \"house in Heredia with 3 bedrooms up to 200 thousand dollars\"."
+  },
+  {
+   "id": "dibujar",
+   "keywords": [
+    "draw",
+    "area",
+    "polygon",
+    "zone",
+    "draw area",
+    "dibujar",
+    "zona",
+    "poligono",
+    "area del mapa",
+    "dibujo"
+   ],
+   "answer": "Tap ✏️ Draw area, click the map to mark the corners and close it on the first point. You'll only see properties inside the polygon. Use ✖ Clear area to remove it."
+  },
+  {
+   "id": "publicar",
+   "keywords": [
+    "post",
+    "list my property",
+    "sell my house",
+    "advertise",
+    "add property",
+    "publish",
+    "publicar",
+    "anunciar",
+    "vender mi casa",
+    "subir propiedad",
+    "agregar propiedad"
+   ],
+   "answer": "Tap ➕ Post a property, fill in the form and set the location: tap 📍 Pick location on the map, or paste coordinates or a Google Maps link. You can draw the land outline with ✏️ Pencil and upload up to 6 photos. If you check \"Post on MapMarket\" (requires signing in), we review it before it goes live."
+  },
+  {
+   "id": "hipoteca",
+   "keywords": [
+    "mortgage",
+    "loan",
+    "credit",
+    "payment",
+    "financing",
+    "calculator",
+    "hipoteca",
+    "credito",
+    "prestamo",
+    "cuota",
+    "financiamiento",
+    "calculadora",
+    "prima",
+    "banco",
+    "bancos",
+    "tasa",
+    "tasas"
+   ],
+   "answer": "Open 🧮 Calculator (or from a property card). Choose currency, down payment, term and optional income: you'll see the monthly payment, the bank comparison (BAC, BCR, BN, Mucap, Mutuales, Scotiabank/Davibank) and whether the payment fits within 30–40% of your income. Bank rates are user-reported: confirm them with the bank and compare the TITA (total annual rate)."
+  },
+  {
+   "id": "tbp",
+   "keywords": [
+    "tbp",
+    "basic rate",
+    "reference rate",
+    "tita",
+    "interest rate",
+    "tasa basica",
+    "tasa básica pasiva"
+   ],
+   "answer": "The TBP (Tasa Básica Pasiva) is calculated by the Central Bank (BCCR); many colón loans switch to TBP + margin after the fixed period. The TITA is the total annual rate including fees and insurance: use it to compare banks."
+  },
+  {
+   "id": "gastos",
+   "keywords": [
+    "closing costs",
+    "closing",
+    "notary",
+    "fees",
+    "transfer tax",
+    "stamps",
+    "gastos",
+    "cierre",
+    "notario",
+    "honorarios",
+    "traspaso",
+    "timbres",
+    "escritura",
+    "formalizacion",
+    "costos"
+   ],
+   "answer": "Approximate closing costs: 1.5% transfer tax, notary fees of 1–1.5% + 13% VAT, stamps and registration 0.5–0.8%, registry search ₡50–150 thousand. Total ≈ 3.5–4.5% of the price, plus 2–3.5% loan closing costs if you finance. The calculator gives you the breakdown (general information reported by the user)."
+  },
+  {
+   "id": "impuestos",
+   "keywords": [
+    "tax",
+    "taxes",
+    "property tax",
+    "luxury tax",
+    "municipal",
+    "quarterly",
+    "impuesto",
+    "bienes inmuebles",
+    "solidario",
+    "trimestral"
+   ],
+   "answer": "Property tax: 0.25% of the value per year, paid quarterly to the municipality. Luxury home tax (impuesto solidario): applies if the building exceeds ~₡143M (0.25–0.55%). In a condo, add the HOA fee and insurance."
+  },
+  {
+   "id": "documentos",
+   "keywords": [
+    "documents",
+    "paperwork",
+    "title",
+    "cadastral",
+    "land use",
+    "due diligence",
+    "documentos",
+    "papeles",
+    "certificacion",
+    "plano",
+    "catastro",
+    "uso de suelo",
+    "agua",
+    "estudio de titulos",
+    "revisar"
+   ],
+   "answer": "Before buying, check: certificación literal and title search (National Registry), cadastral map, land use, water availability (AyA/ASADA), municipal taxes up to date, legal access/easement, building permits and, on the coast, the maritime-terrestrial zone. It's all in 📋 Buying guide, with a checklist saved per property."
+  },
+  {
+   "id": "cierre",
+   "keywords": [
+    "closing process",
+    "steps",
+    "how long",
+    "registration",
+    "national registry",
+    "purchase option",
+    "proceso",
+    "pasos",
+    "cuanto tarda",
+    "inscripcion",
+    "registro nacional",
+    "opcion de compra",
+    "escrow",
+    "fideicomiso"
+   ],
+   "answer": "Closing process (30–90 days): 1) title search, 2) purchase option/promise to sell with a deposit, 3) signing of the deed before a notary, 4) payment of the 1.5% transfer tax, 5) registration at the National Registry (2–6 weeks), 6) municipal transfer, 7) utility transfer. Use your own lawyer and escrow; don't pay in full before the deed. General information, not legal advice."
+  },
+  {
+   "id": "amenidades",
+   "keywords": [
+    "amenities",
+    "pool",
+    "gym",
+    "security",
+    "garden",
+    "bbq",
+    "amenidades",
+    "piscina",
+    "gimnasio",
+    "seguridad",
+    "jardin",
+    "garaje",
+    "condominio"
+   ],
+   "answer": "In the Amenities filter you can choose several (house and condo). They're provided by whoever posts the listing: confirm them with the lister before visiting."
+  },
+  {
+   "id": "cambio",
+   "keywords": [
+    "exchange rate",
+    "dollar",
+    "dollars",
+    "colones",
+    "conversion",
+    "currency",
+    "tipo de cambio",
+    "dolar",
+    "dolares",
+    "cambio"
+   ],
+   "answer": "I use the BCCR reference exchange rate (updated daily). Prices in ₡ are converted to USD with that rate only to filter and compare; it's approximate."
+  },
+  {
+   "id": "datos",
+   "keywords": [
+    "where does the data come from",
+    "source",
+    "data",
+    "updated",
+    "sold",
+    "de donde",
+    "fuente",
+    "datos",
+    "actualiza",
+    "actualizado",
+    "vendida",
+    "retirada",
+    "real",
+    "demo"
+   ],
+   "answer": "Listings on the map are posted by users and agents on MapMarket (reviewed before they're shown). Properties marked [Example] are fictional, to show how the app works. A daily process updates the exchange rate and the TBP; the date is in the \"Updated\" badge."
+  },
+  {
+   "id": "remates",
+   "keywords": [
+    "how does a foreclosure auction work",
+    "foreclosure",
+    "auction",
+    "foreclosures",
+    "deposit",
+    "notice",
+    "como funciona un remate",
+    "remate",
+    "remates",
+    "subasta",
+    "deposito",
+    "edicto",
+    "juzgado",
+    "segundo remate",
+    "tercer remate",
+    "postor"
+   ],
+   "answer": "In a court foreclosure the property is auctioned with a base price: if there are no bidders, the 2nd auction is at 75% and the 3rd at 25% of the base. You usually have to deposit ~50% of the base to bid and pay the rest within the term set by the court. Read the full notice (edicto), check the property at the National Registry (liens, annotations, occupants) and consult a lawyer. The foreclosures section on the map is in the works (coming soon). General information, not legal advice."
+  },
+  {
+   "id": "adjudicados",
+   "keywords": [
+    "bank-owned",
+    "bank owned",
+    "reo",
+    "bank properties",
+    "direct sale",
+    "adjudicado",
+    "adjudicados",
+    "venta de bienes",
+    "bienes del banco",
+    "venta directa"
+   ],
+   "answer": "Bank-owned properties are properties a bank received and sells directly, often discounted from the appraisal and sometimes with special financing. The bank-owned section on the map is in the works (coming soon). In the meantime, check each bank's property-sale website."
+  },
+  {
+   "id": "plus",
+   "keywords": [
+    "plus",
+    "pro",
+    "price",
+    "how much",
+    "subscription",
+    "subscribe",
+    "plan",
+    "plans",
+    "featured",
+    "how many listings",
+    "precio plus",
+    "cuanto cuesta",
+    "suscripcion",
+    "suscribirme",
+    "planes",
+    "premium",
+    "mensualidad",
+    "anual",
+    "pagar plus",
+    "plan pro",
+    "precio pro",
+    "destacados",
+    "destacar",
+    "cuantos anuncios",
+    "limite de anuncios",
+    "anuncios activos",
+    "gratis"
+   ],
+   "answer": "There are 3 plans: <b>Free</b> (₡0): search the map and 1 active listing. <b>Plus</b> (₡3,990/mo or ₡29,990/yr, save ~37%): 3 active listings, unlimited favorites and searches, alerts and advanced filters. <b>Pro</b> (₡6,990/mo): 5 active listings and <b>featured listings</b> that appear first on the map and in the list, plus everything in Plus. Compare them on <a href=\"planes.html\" class=\"underline\">Plans</a>."
+  },
+  {
+   "id": "prueba",
+   "keywords": [
+    "trial",
+    "free trial",
+    "free",
+    "2 days",
+    "two days",
+    "try",
+    "prueba",
+    "gratis",
+    "2 dias",
+    "dos dias",
+    "probar"
+   ],
+   "answer": "The Plus trial lasts 2 days, it's free and needs no card (one per account). Sign in and tap \"Free 2-day Plus trial\" on <a href=\"planes.html\" class=\"underline\">Plans</a>. When it ends you go back to Free at no charge; then you can subscribe to Plus (₡3,990/mo or ₡29,990/yr) or Pro (₡6,990/mo)."
+  },
+  {
+   "id": "pago",
+   "keywords": [
+    "payment",
+    "card",
+    "onvo",
+    "charge",
+    "cancel subscription",
+    "invoice",
+    "billing",
+    "pago",
+    "tarjeta",
+    "cobro",
+    "cancelar suscripcion",
+    "factura",
+    "recibo",
+    "sinpe"
+   ],
+   "answer": "Paid plans are processed with ONVO Pay (Costa Rica) in colones: Plus ₡3,990/mo or ₡29,990/yr and Pro ₡6,990/mo, billed to your card on a recurring basis. MapMarket doesn't store card details. You can cancel in <a href=\"cuenta.html\" class=\"underline\">My account</a> and keep your plan until the end of the paid period."
+  }
+ ],
+ "saludo": "Hi! I'm the MapMarket Assistant 🏡. I can search properties for you (\"apartment in Escazú with pool up to $250 thousand\") or explain mortgages, closing costs and paperwork.",
+ "chips": [
+  "Houses in Cartago up to ₡100 million",
+  "Apartment with pool in San José",
+  "Houses near me within 5 km",
+  "How much are closing costs?",
+  "Compare banks",
+  "Closing process",
+  "How do I draw an area?",
+  "Talk to an agent"
+ ],
+ "fallback": "I'm not sure I understood. Try a search (\"house with 3 bedrooms in Heredia up to 200 thousand dollars\") or pick a topic:"
+}

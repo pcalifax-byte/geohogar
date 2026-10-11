@@ -29,7 +29,8 @@
 @media(max-width:767px){header .mm-scroll{mask-image:linear-gradient(90deg,#000 92%,transparent);-webkit-mask-image:linear-gradient(90deg,#000 92%,transparent)}}
 @media (pointer:coarse){header button,header a,header select,#layers button,#filters button,#filters select,.rchip{min-height:44px;min-width:44px}.leaflet-control-attribution a{display:inline-block;padding:6px 2px}}
 @keyframes mmspin{to{transform:rotate(360deg)}}.mm-spin{animation:mmspin 1s linear infinite}.mm-locbar{margin-bottom:84px!important}.mm-locbar button{display:block;width:44px;height:44px;font-size:20px;line-height:44px;background:#fff;border:0;cursor:pointer}.mm-locbar button+button{border-top:1px solid #ccc}.dark .mm-locbar button{background:#1e293b;color:#e2e8f0}.mm-locbar .mm-loc-on{background:#dbeafe!important;box-shadow:inset 0 0 0 2px #2563eb}
-@media (prefers-reduced-motion:reduce){.pb,.mm-slide,.mm-pop,.mm-fade,.mm-grow,.mm-pulse{animation:none}}</style></head>
+@media (prefers-reduced-motion:reduce){.pb,.mm-slide,.mm-pop,.mm-fade,.mm-grow,.mm-pulse{animation:none}}</style><script src="js/i18n.js"></script>
+</head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-hidden">
 <div id="map" class="fixed inset-0 z-0"></div>
 
@@ -219,9 +220,9 @@ const UI={
    <label class="block text-xs">Moneda del crédito<select id="kCur" aria-label="Moneda" class="ci w-full mt-0.5 px-2 py-1 rounded border dark:bg-slate-700 dark:border-slate-600"><option value="CRC">Colones (₡)</option><option value="USD">Dólares ($)</option></select></label>
    ${f('kP','Precio (USD)',pUSD,'1000')+f('kD','Prima (%)',20)+f('kY','Plazo (años)',30)+f('kR','Tasa manual (%)',8.5,'0.05')+f('kI','Ingreso familiar mensual (₡, opcional)','','10000','placeholder="ej. 1500000"')+f('kCond','Cuota condominal mensual (₡)',0,'5000')+f('kRes','Reserva/imprevistos (%)',2,'0.5')}
   </div>
-  <div id="kOut" class="mt-3 p-3 rounded-xl bg-teal-50 dark:bg-slate-700 text-sm"></div>
+  <div id="kOut" class="mt-3 p-3 rounded-xl bg-teal-50 dark:bg-slate-700 text-sm"></div><div class="mmDisc mt-3 p-3 rounded-xl border-2 border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-200 font-bold uppercase text-xs sm:text-sm leading-snug" role="note">⚠️ CÁLCULO SOLAMENTE CON FINES INFORMATIVOS. ES UN APROXIMADO: LOS MONTOS, TASAS Y CUOTAS REALES SOLO LOS PUEDE PROPORCIONAR LA ENTIDAD BANCARIA.</div>
   <h3 class="font-bold mt-4">🏦 Comparador de bancos</h3><p class="text-[11px] opacity-70">TBP BCCR: <b>${tb.valor??'—'}%</b> (${esc(tb.fecha||'')}, ${tb.verificado?'verificado en BCCR':'no verificado'}). Tasas de bancos: <b>${esc(TASAS.bancos&&TASAS.bancos.every(b=>!b.verificado)?'reportadas por el usuario, confirmar con el banco':'ver columna fuente')}</b>${TASAS.fecha_verificacion?' · verificación '+esc(TASAS.fecha_verificacion):''}.</p>
-  <div class="overflow-x-auto"><table class="w-full text-xs mt-1"><thead><tr class="text-left opacity-70"><th>Banco</th><th>Tasa</th><th>Financ. máx</th><th>Cuota/mes</th><th></th></tr></thead><tbody id="kBanks"></tbody></table></div>
+  <div class="overflow-x-auto"><table class="w-full text-xs mt-1"><thead><tr class="text-left opacity-70"><th>Banco</th><th>Tasa</th><th>Financ. máx</th><th>Cuota/mes</th><th></th></tr></thead><tbody id="kBanks"></tbody></table></div><div class="mmDisc mt-3 p-3 rounded-xl border-2 border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-200 font-bold uppercase text-xs sm:text-sm leading-snug" role="note">⚠️ CÁLCULO SOLAMENTE CON FINES INFORMATIVOS. ES UN APROXIMADO: LOS MONTOS, TASAS Y CUOTAS REALES SOLO LOS PUEDE PROPORCIONAR LA ENTIDAD BANCARIA.</div>
   <div class="text-[11px] opacity-80 mt-3 space-y-1">
    <p>🛡️ <b>Seguros</b>: la cuota real suma seguro de vida (saldo deudor) e incendio/terremoto (aprox. 0,1–0,3% anual del monto); no incluidos arriba.</p>
    <p>📏 <b>Regla</b>: la cuota no debería superar el 30–40% del ingreso neto familiar.</p>
@@ -372,7 +373,7 @@ const Remates={layer:null,on:{remate:false,adjudicado:false},filter:null,
 const Chat={kb:null,
  N:s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),
  lev(a,b){if(Math.abs(a.length-b.length)>2)return 9;const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return d[b.length]},
- async init(){try{this.kb=await fetch(CONFIG.dataBase+'faq.json').then(r=>r.json())}catch{this.kb={intents:[],chips:[],saludo:'¡Hola!',fallback:'No entendí.'}}
+ async init(){try{this.kb=await fetch(CONFIG.dataBase+(window.MMLang==='en'?'faq_en.json':'faq.json')).then(r=>r.json())}catch{this.kb={intents:[],chips:[],saludo:'¡Hola!',fallback:'No entendí.'}}
   $('chatB').onclick=()=>{$('chatW').classList.toggle('hidden');if(!$('chatLog').children.length){this.bot(this.kb.saludo);this.chips(this.kb.chips)}$('chatIn').focus()};
   $('chatX').onclick=()=>$('chatW').classList.add('hidden');
   $('chatF').onsubmit=e=>{e.preventDefault();const v=$('chatIn').value.trim();if(!v)return;$('chatIn').value='';this.ask(v)}},

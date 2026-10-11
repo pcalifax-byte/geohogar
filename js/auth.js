@@ -86,7 +86,7 @@
       if (DEMO) { const s = j(K.s, {}); s.plan = periodo === 'pro' ? 'pro' : 'plus'; s.plus_until = new Date(Date.now() + (periodo === 'anual' ? 365 : 30) * 864e5).toISOString(); localStorage.setItem(K.s, JSON.stringify(s)); emit(); return 'demo' }
       // ONVO Pay: la Edge Function crea la sesión de Checkout con la llave secreta y devuelve la URL
       const c = await sbClient(); const fn = (C.onvo && C.onvo.checkoutFunction) || 'onvo-checkout';
-      const { data, error } = await c.functions.invoke(fn, { body: { periodo: periodo === 'anual' ? 'anual' : periodo === 'pro' ? 'pro' : 'mensual' } });
+      const { data, error } = await c.functions.invoke(fn, { body: { periodo: periodo === 'anual' ? 'anual' : periodo === 'pro' ? 'pro' : 'mensual', idioma: window.MMLang || 'es' } });
       if (error || !data || !data.url) throw new Error('El pago con ONVO aún no está disponible (falta desplegar la función de cobro). Inténtalo más tarde.');
       location.href = data.url; return 'redirect';
     },

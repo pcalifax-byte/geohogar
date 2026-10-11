@@ -17,21 +17,22 @@ Deno.serve(async (req) => {
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     const { data: { user }, error } = await db.auth.getUser(jwt);
-    if (error || !user) return json({ error: "Inicia sesión para suscribirte" }, 401);
-    const { periodo, plan: pl } = await req.json().catch(() => ({}));
+    if (error || !user) return json({ error: "Inicia sesión para suscribirte · Sign in to subscribe" }, 401);
+    const { periodo, plan: pl, idioma } = await req.json().catch(() => ({}));
+    const en = idioma === "en", L = en ? "&lang=en" : "";
     const plan = periodo === "pro" || pl === "pro" ? "pro" : periodo === "anual" ? "anual" : "mensual";
     const session = await onvo("POST", "/checkout/sessions/one-time-link", {
       lineItems: [{ priceId: PRICES[plan], quantity: 1 }],
       customerEmail: user.email,
-      redirectUrl: SITE + "cuenta.html?pago=ok",
-      cancelUrl: SITE + "planes.html?pago=cancelado",
+      redirectUrl: SITE + "cuenta.html?pago=ok" + L,
+      cancelUrl: SITE + "planes.html?pago=cancelado" + L,
       paymentMethodTypes: ["card"],
-      metadata: { supabase_user_id: user.id, email: user.email ?? "", plan, app: "mapmarket" },
+      metadata: { supabase_user_id: user.id, email: user.email ?? "", plan, app: "mapmarket", idioma: en ? "en" : "es" },
     });
     await db.from("pagos_eventos").insert({ proveedor: "onvo", evento: "checkout.created", email: user.email, order_number: session.id, payload: { plan, priceId: PRICES[plan] }, verificado: true });
     return json({ url: session.url, id: session.id });
   } catch (e) {
     console.error(e);
-    return json({ error: "No se pudo iniciar el pago" }, 500);
+    return json({ error: "No se pudo iniciar el pago · Couldn't start the payment" }, 500);
   }
 });

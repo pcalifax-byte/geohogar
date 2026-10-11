@@ -126,9 +126,9 @@ El frontend ya no trae datos embebidos: `index.html` carga por `fetch` los archi
 | `faq.json` | Base de conocimiento del Asistente |
 | `meta.json` | `last_updated` (badge «Actualizado») |
 
-Actualización: `python3 scripts/update.py` (ver docstring). Hace commit + push **solo si cambió algo en `data/`** y deja un resumen en `scripts/last_run.json`. Para programarlo (cron diario 6:00 CR = 12:00 UTC):
+Actualización: `python3 scripts/update.py` (ver docstring). Hace commit + push **solo si cambió algo en `data/`** y deja un resumen en `scripts/last_run.json`. Para programarlo (cron diario 3:00 a. m. CR = 09:00 UTC):
 ```
-0 12 * * * cd /workspace/geohogar-repo && git pull -q && python3 scripts/update.py >> scripts/update.log 2>&1
+0 9 * * * cd /workspace/geohogar-repo && git pull -q && python3 scripts/update.py >> scripts/update.log 2>&1
 ```
 Para leer la tasa de un banco automáticamente, agrega en `tasas.json` → `bancos[i]` los campos `url_tasas` (página pública) y `patron` (regex con un grupo numérico, ej. `"vivienda[^%]{0,80}?(\\d{1,2}[.,]\\d{1,2})\\s?%"`). Si no se puede leer, se conserva el dato anterior.
 

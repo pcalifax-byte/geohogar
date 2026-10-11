@@ -48,7 +48,7 @@
       const b = $('dSave'); b.disabled = true;
       const { error } = await c.from('profiles').update(row).eq('id', u.id); b.disabled = false;
       if (error) { err.textContent = error.message; toast(T('No se pudo guardar'), false); return }
-      localStorage.setItem('mm_idioma', row.idioma); toast('✅ ' + T('Datos guardados'));
+      const cambio = row.idioma !== window.MMLang; localStorage.setItem('mm_idioma', row.idioma); toast('✅ ' + T('Datos guardados')); if (cambio) setTimeout(() => location.reload(), 900);
     };
     $('dFoto').onchange = async e => {
       const f = e.target.files[0]; if (!f) return; if (f.size > 8e6) return toast(T('La imagen es muy grande (máx. 8 MB).'), false);

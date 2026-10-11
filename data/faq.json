@@ -12,7 +12,7 @@
     "navegar",
     "zoom"
    ],
-   "answer": "El mapa muestra cada propiedad con su precio. Los círculos con número agrupan varias: haz zoom o clic para separarlas. Toca un precio para abrir la ficha con fotos, detalles, WhatsApp y calculadora. Colores: verde = coordenadas exactas, ámbar = aproximadas, rosa = demo, gris = vendida/retirada."
+   "answer": "El mapa muestra cada propiedad con su precio. Los círculos con número agrupan varias: haz zoom o clic para separarlas. Toca un precio para abrir la ficha con fotos, detalles, WhatsApp y calculadora. Los anuncios destacados llevan ★ y aparecen primero; los [Ejemplo] son ficticios; gris = vendida/retirada."
   },
   {
    "id": "filtros",
@@ -27,7 +27,7 @@
     "habitaciones",
     "estado"
    ],
-   "answer": "Arriba tienes: búsqueda por texto (ciudad/zona), tipo, provincia, habitaciones, amenidades (selección múltiple), fuente (reales/demo), estado (activas o vendidas/retiradas) y el control de precio máximo en USD. En móvil, toca ⚙️ para mostrarlos. También puedes escribirme algo como «casa en Heredia de 3 habitaciones hasta 200 mil dólares»."
+   "answer": "Arriba tienes: búsqueda por texto (ciudad/zona), tipo, provincia, habitaciones, amenidades (selección múltiple), estado (activas o vendidas/retiradas) y el control de precio máximo en USD. En móvil, toca ⚙️ para mostrarlos. También puedes usar «📍 Cerca de mí» o escribirme algo como «casa en Heredia de 3 habitaciones hasta 200 mil dólares»."
   },
   {
    "id": "dibujar",
@@ -49,7 +49,7 @@
     "subir propiedad",
     "agregar propiedad"
    ],
-   "answer": "Pulsa ➕ Publicar propiedad, llena el formulario, toca 📍 Elegir ubicación y haz clic en el mapa. Por ahora se guarda solo en tu navegador (localStorage)."
+   "answer": "Pulsa ➕ Publicar propiedad, llena el formulario y ubica la propiedad: toca 📍 Elegir ubicación en el mapa o pega coordenadas o un enlace de Google Maps. Puedes dibujar el contorno del terreno con ✏️ Lápiz y subir hasta 6 fotos. Si marcas «Publicar en MapMarket» (requiere iniciar sesión), lo revisamos antes de mostrarlo."
   },
   {
    "id": "hipoteca",
@@ -146,7 +146,7 @@
     "garaje",
     "condominio"
    ],
-   "answer": "En el filtro Amenidades puedes elegir varias (casa y condominio). En los anuncios reales se detectan por palabras clave en la descripción, así que pueden faltar o haber falsos positivos: confirma en el anuncio."
+   "answer": "En el filtro Amenidades puedes elegir varias (casa y condominio). Las indica quien publica el anuncio: confírmalas con el anunciante antes de visitar."
   },
   {
    "id": "cambio",
@@ -200,7 +200,7 @@
     "bienes del banco",
     "venta directa"
    ],
-   "answer": "Los bienes adjudicados son propiedades que un banco recibió y vende directamente, a menudo con descuento sobre el avalúo y financiamiento especial (p. ej. Banco Popular hasta 360 meses según su cartel). La sección de adjudicados en el mapa está en preparación (próximamente). Fuentes: BN Venta de Bienes y catálogo de Banco Popular; BCR no se pudo consultar automáticamente."
+   "answer": "Los bienes adjudicados son propiedades que un banco recibió y vende directamente, a menudo con descuento sobre el avalúo y, a veces, con financiamiento especial. La sección de adjudicados en el mapa está en preparación (próximamente). Mientras tanto, consulta los sitios de venta de bienes de cada banco."
   },
   {
    "id": "plus",
@@ -238,7 +238,7 @@
     "dos dias",
     "probar"
    ],
-   "answer": "La prueba de Plus dura 2 días, es gratis y sin tarjeta (una por cuenta). Inicia sesión y toca «Prueba Plus gratis 2 días» en <a href=\"planes.html\" class=\"underline\">Planes</a>. Al terminar vuelves a Gratis sin cobro; luego puedes suscribirte por ₡3.990/mes o ₡29.990/año."
+   "answer": "La prueba de Plus dura 2 días, es gratis y sin tarjeta (una por cuenta). Inicia sesión y toca «Prueba Plus gratis 2 días» en <a href=\"planes.html\" class=\"underline\">Planes</a>. Al terminar vuelves a Gratis sin cobro; luego puedes suscribirte a Plus (₡3.990/mes o ₡29.990/año) o a Pro (₡6.990/mes)."
   },
   {
    "id": "pago",
@@ -252,7 +252,7 @@
     "recibo",
     "sinpe"
    ],
-   "answer": "Los pagos de Plus se procesan con ONVO Pay (Costa Rica) en colones: ₡3.990/mes o ₡29.990/año, con cobro recurrente a tu tarjeta. MapMarket no guarda datos de tarjeta. Para cancelar, escríbenos desde <a href=\"cuenta.html\" class=\"underline\">Mi cuenta</a>; conservas Plus hasta el final del periodo pagado."
+   "answer": "Los planes pagados se procesan con ONVO Pay (Costa Rica) en colones: Plus ₡3.990/mes o ₡29.990/año y Pro ₡6.990/mes, con cobro recurrente a tu tarjeta. MapMarket no guarda datos de tarjeta. Puedes cancelar en <a href=\"cuenta.html\" class=\"underline\">Mi cuenta</a> y conservas tu plan hasta el final del periodo pagado."
   }
  ],
  "saludo": "¡Hola! Soy el Asistente MapMarket 🏡. Puedo buscar propiedades por ti («apartamento en Escazú con piscina hasta $250 mil») o explicarte hipotecas, gastos de cierre y documentos.",
