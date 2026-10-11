@@ -1,0 +1,19 @@
+/* MapMarket design tokens (todas las páginas) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--mm-primary:#0d9488;--mm-primary-600:#0f766e;--mm-accent:#7c3aed;--mm-gold:#f59e0b;--mm-green:#16a34a;--mm-bg:#f8fafc;--mm-surface:#fff;--mm-text:#0f172a;--mm-muted:#64748b;--mm-radius:16px;--mm-shadow:0 8px 24px rgba(15,23,42,.10)}
+html.dark{--mm-bg:#0f172a;--mm-surface:#1e293b;--mm-text:#f1f5f9;--mm-muted:#94a3b8;--mm-shadow:0 8px 24px rgba(0,0,0,.45)}
+html,body,button,input,select,textarea{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+h1,h2,h3{letter-spacing:-.02em}
+#card{border-radius:var(--mm-radius) var(--mm-radius) 0 0;box-shadow:var(--mm-shadow)}
+@media(min-width:768px){#card{border-radius:var(--mm-radius)}}
+.mmGal{position:relative}.mmGal .mmCnt{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:2px 8px;border-radius:999px}
+.mmGal .mmArr{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:999px;background:rgba(255,255,255,.9);color:#000;font-size:20px;display:none}
+@media(hover:hover){.mmGal:hover .mmArr{display:block}}
+.mmSticky{position:sticky;bottom:0;z-index:5;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--mm-surface) 75%,transparent)}
+.mmSticky a,.mmSticky button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;border-radius:14px;background:#16a34a;color:#fff;font-weight:700;font-size:17px;box-shadow:0 6px 16px rgba(22,163,74,.35)}
+#mmStats{position:fixed;left:50%;transform:translateX(-50%);top:118px;z-index:998;font-size:12px;background:var(--mm-surface);color:var(--mm-text);border-radius:999px;padding:4px 12px;box-shadow:var(--mm-shadow);white-space:nowrap;pointer-events:none}
+@media(min-width:768px){#mmStats{top:auto;bottom:16px}}
+#mmPubFab{position:fixed;right:84px;bottom:18px;z-index:1000;min-height:52px;padding:0 18px;border-radius:999px;background:var(--mm-accent);color:#fff;font-weight:700;box-shadow:0 8px 20px rgba(124,58,237,.4)}
+@media(max-width:767px){#mmPubFab{right:auto;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom))}}
+.mmHint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3000;max-width:320px;background:var(--mm-surface);color:var(--mm-text);border-radius:var(--mm-radius);box-shadow:var(--mm-shadow);padding:16px;text-align:center}

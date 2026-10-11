@@ -1695,3 +1695,18 @@ do $$ declare f record; begin
     where n.nspname='public' and p.proname in ('votos_resumen','mas_gustados','mis_estadisticas','iniciar_conversacion','no_leidos','registrar_vista','registrar_evento')
   loop execute format('revoke execute on function %s from anon, public', f.sig); execute format('grant execute on function %s to authenticated', f.sig); end loop; end $$;
 select 1;
+-- v16: perfil público, conteo real, testimonios
+create or replace function public.perfil_publico(p_id uuid) returns json language sql stable security definer set search_path=public as $$
+  select json_build_object('id',p.id,'nombre',coalesce(nullif(trim(p.nombre),''),'Anunciante'),'foto_url',pp.foto_url,'rol',p.rol,
+    'verificado',(select u.email_confirmed_at is not null from auth.users u where u.id=p.id),'desde',extract(year from p.created_at)::int,
+    'activos',(select count(*) from anuncios a where a.owner_id=p.id and a.estado='aprobado'))
+  from profiles p join perfiles_publicos pp on pp.id=p.id where p.id=p_id and coalesce(p.baneado,false)=false $$;
+revoke execute on function public.perfil_publico(uuid) from anon, public; grant execute on function public.perfil_publico(uuid) to authenticated;
+create or replace function public.stats_publicos() returns json language sql stable security definer set search_path=public as $$
+  select json_build_object('activos',(select count(*) from anuncios where estado='aprobado')) $$;
+grant execute on function public.stats_publicos() to anon, authenticated;
+create table if not exists public.testimonios (id bigserial primary key, autor text not null check (length(autor)<=80), texto text not null check (length(texto)<=500), visible boolean not null default true, created_at timestamptz default now());
+alter table public.testimonios enable row level security;
+drop policy if exists "testimonios ver" on public.testimonios; create policy "testimonios ver" on public.testimonios for select to anon, authenticated using (visible or public.es_admin());
+drop policy if exists "testimonios admin" on public.testimonios; create policy "testimonios admin" on public.testimonios for all to authenticated using (public.es_admin()) with check (public.es_admin());
+select 1;
