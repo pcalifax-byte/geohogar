@@ -1686,3 +1686,12 @@ SELECT 'v13d listo ✅' AS resultado;
 -- v14 · capa Plusvalía / Inversión (por defecto Plus, Pro y Admin)
 INSERT INTO public.permisos(perfil,feature,activo,limite,bloqueado) VALUES ('gratis','plusvalia',false,null,false),('plus','plusvalia',true,null,false),('pro','plusvalia',true,null,false),('agente','plusvalia',false,null,false),('admin','plusvalia',true,null,false) ON CONFLICT DO NOTHING;
 SELECT 'v14 listo ✅' AS resultado;
+-- v15: login obligatorio — anon no puede leer anuncios ni datos de usuarios
+alter policy "anuncios publicos" on public.anuncios to authenticated;
+alter policy "destacadas publicas" on public.destacadas to authenticated;
+alter policy "historial publico" on public.precio_historial_anuncios to authenticated;
+do $$ declare f record; begin
+  for f in select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in ('votos_resumen','mas_gustados','mis_estadisticas','iniciar_conversacion','no_leidos','registrar_vista','registrar_evento')
+  loop execute format('revoke execute on function %s from anon, public', f.sig); execute format('grant execute on function %s to authenticated', f.sig); end loop; end $$;
+select 1;

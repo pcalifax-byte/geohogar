@@ -1584,5 +1584,9 @@
 "Sin datos ONT legibles para este cantón (mapa no publicado o escaneado).": "No readable ONT data for this canton (map not published or scanned).",
 "Área con permiso de construcción en la provincia": "Permitted construction area in the province",
 "Fuentes": "Sources",
-"Informativo: no forma parte del puntaje.": "For information only: not part of the score."
+"Informativo: no forma parte del puntaje.": "For information only: not part of the score.",
+"Ubicación aproximada (el enlace no trae coordenadas exactas): revisa y mueve el pin.": "Approximate location (the link has no exact coordinates): check it and move the pin.",
+"Demasiadas consultas. Espera un minuto e intenta de nuevo.": "Too many requests. Wait a minute and try again.",
+"No pudimos leer ese enlace corto. Ábrelo en Google Maps, mantén presionado el punto y copia las coordenadas.": "We couldn't read that short link. Open it in Google Maps, long-press the spot and copy the coordinates.",
+"Leyendo enlace…": "Reading link…"
 }

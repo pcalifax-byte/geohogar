@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.push-enviar]
 verify_jwt = false
+
+[functions.resolve-maps-link]
+verify_jwt = false

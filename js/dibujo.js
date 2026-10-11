@@ -12,9 +12,21 @@
     for (let i = 0; i < Math.min(code.length, 10); i += 2) { const a = A.indexOf(code[i]), b = A.indexOf(code[i + 1]); if (a < 0 || b < 0) return null; lat += a * rs; lon += b * rs; if (i < 8) rs /= 20 }
     const r = rs * (code.length >= 10 ? 1 : 20); return { lat: lat + r / 2, lon: lon + r / 2 };
   }
+  const CORTO = /^\s*(https?:\/\/)?(maps\.app\.goo\.gl\/|goo\.gl\/maps\/|g\.co\/kgs\/)\S+/i;
+  async function resolveCoords(txt) {
+    const s = String(txt || '').trim(), m = s.match(CORTO);
+    if (!m) return parseCoords(s);
+    const url = (m[1] ? '' : 'https://') + m[0].trim();
+    try {
+      const C = window.GH_CONFIG || {}, r = await fetch(C.supabaseUrl + '/functions/v1/resolve-maps-link', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: C.supabaseAnonKey, Authorization: 'Bearer ' + C.supabaseAnonKey }, body: JSON.stringify({ url }) });
+      const d = await r.json();
+      if (d && d.lat != null) { const p = parseCoords(d.lat + ', ' + d.lon); if (!p.error && d.approx) p.aviso = T('Ubicación aproximada (el enlace no trae coordenadas exactas): revisa y mueve el pin.'); return p }
+      if (r.status === 429) return { error: T('Demasiadas consultas. Espera un minuto e intenta de nuevo.') };
+    } catch (e) {}
+    return { error: T('No pudimos leer ese enlace corto. Ábrelo en Google Maps, mantén presionado el punto y copia las coordenadas.') };
+  }
   function parseCoords(txt) {
     const s = String(txt || '').trim(); if (!s) return { error: T('Pega coordenadas o un enlace.') };
-    if (/(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(s)) return { error: T('Los enlaces cortos (maps.app.goo.gl) no se pueden leer desde el navegador. Ábrelo, espera a que cargue el mapa y copia la dirección completa de la barra (contiene @latitud,longitud), o mantén presionado el punto en Google Maps y copia las coordenadas.') };
     let m, lat, lon;
     const dec = decodeURIComponent(s);
     if ((m = dec.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/))) { lat = +m[1]; lon = +m[2] }
@@ -111,7 +123,8 @@
         <p id="nCoordMsg" class="text-xs mt-1" role="status"></p>
         ${d.lat ? `<a class="text-xs underline text-teal-700 dark:text-teal-300" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${d.lat},${d.lon}">🔎 ${T('Abrir en Google Maps para verificar')}</a>` : ''}
         <div class="flex flex-wrap items-center gap-2 mt-2"><button id="nDraw" type="button" class="rounded-lg border border-rose-500 text-rose-700 dark:text-rose-300 px-3" style="min-height:44px">✏️ ${verts.length >= 3 ? T('Editar contorno del terreno') : T('Dibujar contorno del terreno (Lápiz)')}</button>${a ? `<span class="text-xs">✅ ${fmtA(a)} · ${fmtL(perim(verts))}</span><button id="nDrawDel" type="button" class="text-xs underline text-red-600" style="min-height:36px">${T('Quitar')}</button>` : '<span class="text-xs opacity-60">' + T('Opcional') + '</span>'}</div></div>`);
-      $('nCoordOk').onclick = () => { const r = parseCoords($('nCoord').value), m = $('nCoordMsg'); if (r.error) { m.className = 'text-xs mt-1 text-red-600'; m.textContent = r.error; return } guardar(); d.lat = r.lat; d.lon = r.lon; UI.publish(map, onSaved); map.setView([r.lat, r.lon], 17); const m2 = $('nCoordMsg'); if (m2) { m2.className = 'text-xs mt-1 text-emerald-600'; m2.textContent = '📍 ' + T('Ubicación colocada') + `: ${r.lat}, ${r.lon}` } };
+      $('nCoordOk').onclick = async () => { const m0 = $('nCoordMsg'), b0 = $('nCoordOk'); if (CORTO.test($('nCoord').value)) { m0.className = 'text-xs mt-1 opacity-80'; m0.textContent = '⏳ ' + T('Leyendo enlace…'); b0.disabled = true } const r = await resolveCoords($('nCoord').value), m = $('nCoordMsg'); if (b0) b0.disabled = false; if (r.error) { m.className = 'text-xs mt-1 text-red-600'; m.textContent = r.error; return } guardar(); d.lat = r.lat; d.lon = r.lon; UI.publish(map, onSaved); map.setView([r.lat, r.lon], 17); const m2 = $('nCoordMsg'); if (m2) { m2.className = 'text-xs mt-1 text-emerald-600'; m2.textContent = '📍 ' + T('Ubicación colocada') + `: ${r.lat}, ${r.lon}` + (r.aviso ? ' · ⚠️ ' + r.aviso : '') } };
+      $('nCoord').onpaste = () => setTimeout(() => { if (CORTO.test($('nCoord').value)) $('nCoordOk').click() }, 50);
       $('nCoord').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('nCoordOk').click() } };
       $('nDraw').onclick = () => { guardar(); UI.close(); if (d.lat && !verts.length) map.setView([d.lat, d.lon], 18); dibujar(map, verts, v => { if (v) { if (v.length >= 3) { d.poly = toGeo(v); d.area_terreno = Math.round(area(v)); if (!d.lat) { const c = L.polygon(v).getBounds().getCenter(); d.lat = c.lat; d.lon = c.lng } } else { d.poly = null; d.area_terreno = null } } UI.publish(map, onSaved) }) };
       if ($('nDrawDel')) $('nDrawDel').onclick = () => { guardar(); d.poly = null; d.area_terreno = null; UI.publish(map, onSaved) };
@@ -130,7 +143,7 @@
     const pts = v.map(([a, o]) => `${(5 + (o - x0) * k * s).toFixed(1)},${(5 + (y1 - a) * s).toFixed(1)}`).join(' ');
     return `<svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><polygon points="${pts}" fill="#e11d4822" stroke="#e11d48" stroke-width="2"/></svg>`;
   }
-  window.MMDibujo = { dibujar, parseCoords, area, perim, fmtA, fmtL, toGeo, fromGeo };
+  window.MMDibujo = { dibujar, parseCoords: resolveCoords, parseSync: parseCoords, area, perim, fmtA, fmtL, toGeo, fromGeo };
   window.addEventListener('mm-feat-ready', () => {
     try { patch() } catch (e) { console.warn('dibujo', e) }
     const map = MapController.map; map.on('moveend zoomend', contornos);
