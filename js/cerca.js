@@ -46,7 +46,7 @@
       let p = $('ccPanel');
       if (!show) { p && p.classList.add('hidden'); return }
       if (!p) { p = document.createElement('div'); p.id = 'ccPanel'; p.setAttribute('role', 'region'); p.setAttribute('aria-label', 'Cerca de mí'); p.className = 'fixed z-[1100] left-2 right-2 sm:left-auto sm:right-3 sm:w-80 bottom-24 rounded-2xl shadow-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur p-3 text-sm'; document.body.appendChild(p) }
-      p.classList.remove('hidden');
+      p.classList.remove('hidden'); const cta = $('mmCta'); if (cta) cta.remove();
       const c = this.centro();
       p.innerHTML = `<div class="flex items-center gap-2"><b>📍 Cerca ${this.punto ? 'del punto' : 'de mí'}</b><span id="ccN" class="text-xs opacity-70"></span><button id="ccX" class="ml-auto w-11 h-11 -my-2 -mr-2" aria-label="Cerrar">✕</button></div>
         <div class="flex flex-wrap gap-1.5 mt-2">${R.map(k => `<button data-k="${k}" class="cck rounded-full border dark:border-slate-600 px-3 ${this.on && this.km === k ? 'bg-teal-600 text-white border-teal-600' : ''}" style="min-height:40px">${k} km</button>`).join('')}</div>
