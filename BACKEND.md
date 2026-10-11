@@ -233,3 +233,10 @@ Job de alertas de precio (ejemplo): `SELECT a.user_id, p.external_id FROM alerta
 - **Historial de precios**: `clean.py` mantiene `precio_hist` (últimos 12 cambios); `update.py` lee el precio actual de Anuntico (JSON-LD). La ficha muestra «⬇️ Bajó X %».
 - **Analítica**: no usamos analítica de terceros ni cookies de rastreo. Solo los conteos agregados de `eventos` (vistas/contactos por anuncio, con hash de IP no reversible y límites) que ve el agente en Modo Agente. Si en el futuro se agrega analítica, preferir una sin cookies (p. ej. Plausible/Umami autoalojado) y actualizar `privacidad.html`.
 - **SEO**: `scripts/seo.py` genera `p/<id>.html` (Open Graph por anuncio, redirige al mapa) y `sitemap.xml`. Nota: GitHub Pages en `/geohogar/` no permite `robots.txt` en la raíz del dominio; el archivo del repo es informativo — registra el sitemap en Google Search Console.
+
+
+## v8 · Sin contenido de terceros en público
+- `data/propiedades.json` contiene solo los 40 ejemplos; `data/remates.json` y `data/mercado.json` vacíos; `capas.json` sin medianas (POIs de OpenStreetMap se mantienen, licencia ODbL con atribución).
+- Remates/adjudicados y el calendario muestran «Próximamente»; plusvalía desactivada; estimador y datos de zona usan solo anuncios de usuarios («Datos insuficientes» si hay < 5).
+- La captura privada vive en `privado_propiedades` (1 073) y `privado_remates` (1 466), RLS `es_admin()`, sin acceso anon. `update.py` ya no hace scraping: solo tipo de cambio BCCR, TBP/tasas y mantenimiento de ejemplos.
+- Respaldo local fuera del repo: `/workspace/backup_scraped_2026-10-11/`.

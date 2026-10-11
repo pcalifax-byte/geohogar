@@ -7,7 +7,7 @@
   const q = (a, f) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), i = (s.length - 1) * f, lo = Math.floor(i); return s[lo] + (s[Math.ceil(i)] - s[lo]) * (i - lo) };
 
   function estimador() {
-    UI.modal(`<h2 class="text-xl font-bold">🏷️ ¿Cuánto vale mi propiedad?</h2><p class="text-xs opacity-70">Estimación orientativa con los precios <b>pedidos</b> de anuncios similares en MapMarket (no es un avalúo).</p>
+    UI.modal(`<h2 class="text-xl font-bold">🏷️ ¿Cuánto vale mi propiedad?</h2><p class="text-xs opacity-70">Estimación orientativa con los precios <b>pedidos</b> de anuncios publicados por usuarios en MapMarket (no incluye ejemplos ni datos de terceros; no es un avalúo).</p>
     <div class="grid grid-cols-2 gap-3 mt-3"><label class="text-sm">Tipo<select id="esT" class="mt-1 w-full h-11 px-2 rounded-lg border dark:bg-slate-700 dark:border-slate-600"><option>Casa</option><option>Apartamento</option><option value="Lote">Lote / terreno</option></select></label>
     <label class="text-sm">Provincia<select id="esP" class="mt-1 w-full h-11 px-2 rounded-lg border dark:bg-slate-700 dark:border-slate-600">${PROV.map(p => `<option>${p}</option>`).join('')}</select></label>
     <label class="text-sm">Cantón o zona (opcional)<input id="esC" class="mt-1 w-full h-11 px-2 rounded-lg border dark:bg-slate-700 dark:border-slate-600" placeholder="Ej. Escazú"></label>
@@ -21,7 +21,7 @@
       let base = App.all.filter(p => !p.demo && okT(p) && p.province === pv), zona = c ? base.filter(p => Filters.norm([p.location, p.canton, p.district].join(' ')).includes(c)) : [];
       let set = zona.map(m2).filter(Boolean), lbl = 'en ' + E($('esC').value) + ', ' + pv;
       if (set.length < 5) { set = base.map(m2).filter(Boolean); lbl = 'en ' + pv + (c ? ' (pocos datos para esa zona; se usa la provincia)' : '') }
-      if (set.length < 5) { $('esR').innerHTML = `<p class="text-sm">No hay suficientes anuncios con área y precio para estimar (${set.length}). Prueba otra provincia o tipo.</p>`; return }
+      if (set.length < 5) { $('esR').innerHTML = `<div class="rounded-xl border border-dashed p-4 text-sm"><b>Datos insuficientes.</b> La estimación usa solo anuncios publicados en MapMarket con área y precio (${set.length} para este filtro; se necesitan al menos 5). A medida que más personas publiquen, estará disponible.</div>`; return }
       const [p25, p50, p75] = [.25, .5, .75].map(f => q(set, f));
       $('esR').innerHTML = `<div class="rounded-xl bg-teal-50 dark:bg-slate-700 p-4"><div class="text-xs opacity-70">Valor estimado (precio pedido) ${lbl}</div><div class="text-3xl font-extrabold text-teal-700 dark:text-teal-300">₡${fmt(p50 * a)}</div><div class="text-sm">Rango probable: ₡${fmt(p25 * a)} – ₡${fmt(p75 * a)} <span class="opacity-60">(≈ $${fmt(p25 * a / CONFIG.USD_CRC)} – $${fmt(p75 * a / CONFIG.USD_CRC)})</span></div><div class="text-xs opacity-70 mt-1">Mediana ₡${fmt(p50)}/m² · basado en ${set.length} anuncios · excluye precios dudosos</div></div><p class="text-[11px] opacity-60 mt-2">Los precios pedidos suelen ser mayores que los de cierre. Para un valor formal pide un avalúo a un perito o a tu banco.</p>`;
     };
@@ -54,7 +54,7 @@
     const sc = UI.showCard.bind(UI);
     UI.showCard = function (p) { sc(p); const b = baja(p); if (!b) return; const h = document.querySelector('#card h2, #card .text-2xl'); const el = document.createElement('div'); el.className = 'inline-block mt-1 text-xs font-semibold rounded-full px-2 py-0.5 bg-emerald-600 text-white'; el.textContent = `⬇️ Bajó ${b.pct.toFixed(0)} % (antes ${b.cur === 'CRC' ? '₡' : '$'}${fmt(b.antes)}, ${b.fecha})`; (h && h.parentNode ? h.parentNode.insertBefore(el, h.nextSibling) : null) };
     const bar = $('bPub') && $('bPub').parentNode; if (!bar) return;
-    [['bEst', '🏷️ ¿Cuánto vale?', estimador], ['bCal', '📅 Remates', calendario]].forEach(([id, t, fn]) => { const b = document.createElement('button'); b.id = id; b.className = 'px-2 py-1 rounded-full border dark:border-slate-600'; b.textContent = t; b.onclick = fn; bar.insertBefore(b, $('bPub')) });
+    [['bEst', '🏷️ ¿Cuánto vale?', estimador]].forEach(([id, t, fn]) => { const b = document.createElement('button'); b.id = id; b.className = 'px-2 py-1 rounded-full border dark:border-slate-600'; b.textContent = t; b.onclick = fn; bar.insertBefore(b, $('bPub')) });
   });
   window.Extras = { baja, estimador, calendario };
 })();

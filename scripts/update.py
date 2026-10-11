@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""MapMarket · actualización diaria de datos.
+"""
+AVISO: las funciones de scraping (update_listings, add_new, update_remates, update_market) quedan desactivadas en main().
+MapMarket · actualización diaria de datos.
 
 Uso:  python3 scripts/update.py [--no-push] [--no-listings] [--max-new N] [--delay 1.5]
 
@@ -266,15 +268,14 @@ def update_remates():
 # ---------------- main ----------------
 def main():
     before = digest()
-    update_fx(); update_rates(); update_market()
-    if not A.no_remates: update_remates()
+    # Desde el 11 oct 2026 MapMarket NO publica contenido de terceros: no se hace scraping de anuncios, remates ni medianas.
+    update_fx(); update_rates()
     props = load("propiedades.json"); ps = json.dumps(props, sort_keys=True)
     for p in props:  # amenidades para cualquier anuncio que aún no las tenga
         if "amenidades" not in p: p["amenidades"] = extraer(p)
         p.setdefault("status", "activa")
-    if not A.no_listings:
-        update_listings(props)
-        if A.max_new: add_new(props)
+    # Solo mantenimiento: los anuncios públicos son ejemplos (demo) y los de usuarios viven en Supabase (tabla anuncios).
+    props = [p for p in props if p.get("demo")]
     from clean import clean          # calidad de datos: precios 0/dudosos, moneda, duplicados, puntos apilados
     props, summary["limpieza"] = clean(props, TODAY)
     if json.dumps(props, sort_keys=True) != ps: save("propiedades.json", props, compact=True)
@@ -289,7 +290,7 @@ def main():
         save("meta.json", meta)
     json.dump(summary, open(os.path.join(ROOT, "scripts", "last_run.json"), "w"), ensure_ascii=False, indent=1)
     if changed:
-        subprocess.run(["git", "-C", ROOT, "add", "data", "p", "sitemap.xml", "scripts/last_run.json", "scripts/geocache.json"], check=True)
+        subprocess.run(["git", "-C", ROOT, "add", "data", "sitemap.xml", "scripts/last_run.json"], check=True)
         msg = f"Datos {TODAY}: TC {summary['tipo_cambio']['venta']}, vendidas+{summary.get('anuncios',{}).get('nuevas_vendidas',0)}, retiradas+{summary.get('anuncios',{}).get('nuevas_retiradas',0)}, nuevas {summary.get('nuevas',0)}"
         subprocess.run(["git", "-C", ROOT, "commit", "-m", msg], check=True)
         if not A.no_push: subprocess.run(["git", "-C", ROOT, "push"], check=True)

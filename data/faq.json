@@ -173,7 +173,7 @@
     "real",
     "demo"
    ],
-   "answer": "Los anuncios reales vienen de Encuentra24 y Anuntico; un script diario revisa si siguen activos (vendida/retirada) y actualiza tipo de cambio y TBP. Las propiedades [DEMO] son ficticias para mostrar la app. La fecha está en el distintivo «Actualizado»."
+   "answer": "Los anuncios del mapa los publican usuarios y agentes en MapMarket (revisados antes de mostrarse). Las propiedades marcadas [Ejemplo] son ficticias para mostrar cómo funciona la app. Un proceso diario actualiza el tipo de cambio y la TBP; la fecha está en el distintivo «Actualizado»."
   },
   {
    "id": "remates",
@@ -189,7 +189,7 @@
     "tercer remate",
     "postor"
    ],
-   "answer": "En un remate judicial la finca sale a subasta con una base: si no hay postores, el 2do remate es al 75% y el 3er al 25% de la base. Normalmente debes depositar ~50% de la base para participar y pagar el resto en el plazo que fije el juzgado. Lee el edicto completo, revisa la finca en el Registro Nacional (gravámenes, anotaciones, ocupantes) y consulta a un abogado. Activa ⚖️ Remates en el mapa o escríbeme «remates en Heredia». Información general, no asesoría legal."
+   "answer": "En un remate judicial la finca sale a subasta con una base: si no hay postores, el 2do remate es al 75% y el 3er al 25% de la base. Normalmente debes depositar ~50% de la base para participar y pagar el resto en el plazo que fije el juzgado. Lee el edicto completo, revisa la finca en el Registro Nacional (gravámenes, anotaciones, ocupantes) y consulta a un abogado. La sección de remates en el mapa está en preparación (próximamente). Información general, no asesoría legal."
   },
   {
    "id": "adjudicados",
@@ -200,7 +200,7 @@
     "bienes del banco",
     "venta directa"
    ],
-   "answer": "Los bienes adjudicados son propiedades que un banco recibió y vende directamente, a menudo con descuento sobre el avalúo y financiamiento especial (p. ej. Banco Popular hasta 360 meses según su cartel). Activa 🏦 Adjudicados en el mapa o escríbeme «adjudicados en Alajuela». Fuentes: BN Venta de Bienes y catálogo de Banco Popular; BCR no se pudo consultar automáticamente."
+   "answer": "Los bienes adjudicados son propiedades que un banco recibió y vende directamente, a menudo con descuento sobre el avalúo y financiamiento especial (p. ej. Banco Popular hasta 360 meses según su cartel). La sección de adjudicados en el mapa está en preparación (próximamente). Fuentes: BN Venta de Bienes y catálogo de Banco Popular; BCR no se pudo consultar automáticamente."
   },
   {
    "id": "plus",

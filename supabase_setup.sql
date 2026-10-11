@@ -763,3 +763,27 @@ SELECT 'MapMarket v7b listo ✅' AS resultado;
 -- Programación diaria de alertas (ejecutar aparte, con tu CRON_SECRET; no se guarda en el repo):
 --   CREATE EXTENSION IF NOT EXISTS pg_cron; CREATE EXTENSION IF NOT EXISTS pg_net;
 --   SELECT cron.schedule('mapmarket-alertas', '0 13 * * *', $$ SELECT net.http_post('https://<ref>.supabase.co/functions/v1/alertas-email', '{}'::jsonb, '{}'::jsonb, jsonb_build_object('x-cron-secret','<CRON_SECRET>','Content-Type','application/json')) $$);
+
+-- =====================================================================
+-- v8 · Datos privados (contenido de terceros) visibles SOLO para administradores. Idempotente.
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS public.privado_propiedades (
+  id TEXT PRIMARY KEY, fuente TEXT, titulo TEXT, tipo TEXT, precio NUMERIC, moneda TEXT, provincia TEXT,
+  lat DOUBLE PRECISION, lon DOUBLE PRECISION, url TEXT, data JSONB NOT NULL, importado_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS public.privado_remates (
+  id TEXT PRIMARY KEY, kind TEXT, fuente TEXT, titulo TEXT, provincia TEXT, canton TEXT, fecha DATE,
+  lat DOUBLE PRECISION, lon DOUBLE PRECISION, url TEXT, data JSONB NOT NULL, importado_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS privado_prop_prov_idx ON public.privado_propiedades (provincia);
+CREATE INDEX IF NOT EXISTS privado_rem_fecha_idx ON public.privado_remates (fecha);
+ALTER TABLE public.privado_propiedades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.privado_remates ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.privado_propiedades, public.privado_remates FROM anon, authenticated;
+GRANT SELECT ON public.privado_propiedades, public.privado_remates TO authenticated;
+DROP POLICY IF EXISTS "solo admin" ON public.privado_propiedades;
+CREATE POLICY "solo admin" ON public.privado_propiedades FOR SELECT TO authenticated USING (public.es_admin());
+DROP POLICY IF EXISTS "solo admin" ON public.privado_remates;
+CREATE POLICY "solo admin" ON public.privado_remates FOR SELECT TO authenticated USING (public.es_admin());
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v8 (datos privados admin) listo ✅' AS resultado;
