@@ -35,7 +35,7 @@ async function procesar(ev: any) {
     const base = p.plus_until && new Date(p.plus_until) > new Date() ? new Date(p.plus_until) : new Date();
     await db.from("profiles").update({
       plan: "plus", plus_until: addPeriod(base, plan).toISOString(), onvo_plan: plan,
-      onvo_customer_id: s.customerId ?? s.customer?.id ?? null, onvo_subscription_id: s.subscriptionId ?? s.subscription?.id ?? null,
+      onvo_customer_id: s.customerId ?? s.customer?.id ?? null, onvo_subscription_id: s.subscriptionId ?? s.subscription?.id ?? null, suscripcion_cancelada_at: null,
     }).eq("id", p.id);
   } else if (type === "subscription.renewal.succeeded") {
     const subId = d.subscriptionId ?? d.subscription?.id;

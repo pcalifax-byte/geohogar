@@ -638,3 +638,7 @@ CREATE POLICY "admin reportes upd" ON public.reportes FOR UPDATE TO authenticate
 
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v5 (retiros + límites) listo ✅' AS resultado;
+
+-- v6 · Suscripción cancelable por el usuario
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS suscripcion_cancelada_at TIMESTAMPTZ;
+NOTIFY pgrst, 'reload schema';

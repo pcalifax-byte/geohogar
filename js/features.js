@@ -185,7 +185,7 @@
   function viewer(p, start) {
     const imgs = (p.images || []).slice(0, 20); if (!imgs.length) return; let i = start || 0;
     const v = document.createElement('div'); v.className = 'fixed inset-0 z-[5000] bg-black/95 flex items-center justify-center select-none'; document.body.appendChild(v);
-    const draw = () => v.innerHTML = `<img src="${E(imgs[i])}" referrerpolicy="no-referrer" class="max-w-full max-h-full object-contain mm-fade"><button data-a="x" class="absolute top-3 right-4 text-white text-3xl">✕</button>${imgs.length > 1 ? '<button data-a="p" class="absolute left-2 top-1/2 text-white text-4xl px-3">‹</button><button data-a="n" class="absolute right-2 top-1/2 text-white text-4xl px-3">›</button>' : ''}<div class="absolute bottom-4 text-white/80 text-sm">${i + 1} / ${imgs.length} · Foto del anuncio (${E(p.source)})</div>`;
+    const draw = () => v.innerHTML = `<img src="${E(imgs[i])}" alt="Foto ${i + 1} de ${imgs.length}" referrerpolicy="no-referrer" class="max-w-full max-h-full object-contain mm-fade"><button data-a="x" class="absolute top-3 right-4 text-white text-3xl">✕</button>${imgs.length > 1 ? '<button data-a="p" class="absolute left-2 top-1/2 text-white text-4xl px-3">‹</button><button data-a="n" class="absolute right-2 top-1/2 text-white text-4xl px-3">›</button>' : ''}<div class="absolute bottom-4 text-white/80 text-sm">${i + 1} / ${imgs.length} · Foto del anuncio (${E(p.source)})</div>`;
     const go = d => { i = (i + d + imgs.length) % imgs.length; draw() }, close = () => { v.remove(); document.removeEventListener('keydown', key) };
     const key = e => e.key === 'Escape' ? close() : e.key === 'ArrowRight' ? go(1) : e.key === 'ArrowLeft' ? go(-1) : 0;
     v.onclick = e => { const a = e.target.dataset.a; a === 'x' ? close() : a === 'p' ? go(-1) : a === 'n' ? go(1) : e.target === v && close() };
@@ -260,7 +260,7 @@
     card.querySelectorAll('.h-48').forEach(x => { x.classList.remove('h-48'); x.classList.add('h-64', 'md:h-72') });
     card.querySelectorAll('img').forEach((im, i) => { im.style.cursor = 'zoom-in'; im.onclick = () => viewer(p, i) });
     const wa = [...card.querySelectorAll('a')].find(a => /wa\.me/.test(a.href));
-    const link = BASE + 'index.html?p=' + encodeURIComponent(p.id);
+    const link = BASE + (p.demo || p.mine ? 'index.html?p=' + encodeURIComponent(p.id) : 'p/' + String(p.id).replace(/[^A-Za-z0-9_-]/g, '') + '.html');
     const shareTxt = `Mira esta propiedad en MapMarket: ${p.title} — ${DataService.full(p)} ${link}`;
     if (wa) { wa.className = 'col-span-2 text-center bg-green-600 hover:bg-green-700 text-white rounded-xl py-3 text-base font-bold shadow mm-pulse'; wa.innerHTML = '💬 Contactar por WhatsApp'; wa.addEventListener('click', () => Ev.track(p, 'contacto')); wa.parentNode.prepend(wa) }
     const box = document.createElement('div'); box.className = 'px-4 pb-4 space-y-2';
@@ -290,7 +290,7 @@
   function legend() {
     const d = document.createElement('div'); d.id = 'mmLegend';
     d.className = 'fixed z-[999] left-2 bottom-24 md:bottom-8 bg-white/95 dark:bg-slate-800/95 rounded-xl shadow-lg text-[11px] p-2 space-y-0.5';
-    d.innerHTML = `<button id="lgT" class="font-semibold w-full text-left">🗂️ Leyenda ▾</button><div id="lgB">${TYPES.map(t => `<div class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full" style="background:${t[2]}"></span>${t[1]}</div>`).join('')}
+    d.innerHTML = `<button id="lgT" class="font-semibold w-full text-left py-2">🗂️ Leyenda ▾</button><div id="lgB">${TYPES.map(t => `<div class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full" style="background:${t[2]}"></span>${t[1]}</div>`).join('')}
       <div class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full" style="background:#f59e0b"></span>★ Destacada</div><div class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full border-2 border-dashed border-slate-500"></span>Ubicación aproximada</div>
       <div class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full" style="background:#9ca3af"></span>Vendida / retirada</div><div class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full" style="background:#db2777"></span>Demo</div>
       <div class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full" style="background:#b91c1c"></span>Remate · <span class="inline-block w-3 h-3 rounded-full" style="background:#ea580c"></span>Adjudicado</div></div>`;

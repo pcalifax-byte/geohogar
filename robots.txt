@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /geohogar/
+Disallow: /geohogar/p/
+Sitemap: https://pcalifax-byte.github.io/geohogar/sitemap.xml

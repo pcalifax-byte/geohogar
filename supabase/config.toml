@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.onvo-webhook]
 verify_jwt = false
+
+[functions.cuenta]
+verify_jwt = true

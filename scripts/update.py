@@ -271,6 +271,7 @@ def main():
     from clean import clean          # calidad de datos: precios 0/dudosos, moneda, duplicados, puntos apilados
     props, summary["limpieza"] = clean(props, TODAY)
     if json.dumps(props, sort_keys=True) != ps: save("propiedades.json", props, compact=True)
+    import seo; summary["paginas_og"] = seo.run()
     changed = digest() != before
     st = {}
     for p in props: st[p.get("status", "activa")] = st.get(p.get("status", "activa"), 0) + 1
@@ -281,7 +282,7 @@ def main():
         save("meta.json", meta)
     json.dump(summary, open(os.path.join(ROOT, "scripts", "last_run.json"), "w"), ensure_ascii=False, indent=1)
     if changed:
-        subprocess.run(["git", "-C", ROOT, "add", "data", "scripts/last_run.json", "scripts/geocache.json"], check=True)
+        subprocess.run(["git", "-C", ROOT, "add", "data", "p", "sitemap.xml", "scripts/last_run.json", "scripts/geocache.json"], check=True)
         msg = f"Datos {TODAY}: TC {summary['tipo_cambio']['venta']}, vendidas+{summary.get('anuncios',{}).get('nuevas_vendidas',0)}, retiradas+{summary.get('anuncios',{}).get('nuevas_retiradas',0)}, nuevas {summary.get('nuevas',0)}"
         subprocess.run(["git", "-C", ROOT, "commit", "-m", msg], check=True)
         if not A.no_push: subprocess.run(["git", "-C", ROOT, "push"], check=True)
