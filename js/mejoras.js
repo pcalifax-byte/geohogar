@@ -7,6 +7,14 @@
   const LOC = () => window.MMLocale || 'es-CR';
   const usd = p => (p.currency === 'CRC' ? p.price / ((window.CONFIG && CONFIG.fx) || 510) : p.price);
 
+  const normWa = v => { const d = String(v || '').replace(/\D/g, '').replace(/^506(?=\d{8}$)/, ''); return /^[2-8]\d{7}$/.test(d) ? '+506' + d : null };
+  window.MMWa = () => normWa($('nWa') && $('nWa').value);
+  const waUrl = p => { const n = normWa(p.whatsapp); if (!n) return null; const link = 'https://mapmarketapp.com/index.html?p=' + encodeURIComponent(p.id);
+    return 'https://wa.me/' + n.slice(1) + '?text=' + encodeURIComponent(T('Hola, me interesa esta propiedad en MapMarket:') + ' ' + (p.title || '') + ' ' + link) };
+  const enApp = () => /MapMarketApp/i.test(navigator.userAgent) || !!window.Capacitor;
+  // En la app Android (WebView) target=_blank no abre nada: se navega en la misma ventana y Capacitor lo pasa a WhatsApp.
+  const abrirWa = u => { if (enApp() || /Android|iPhone|iPad/i.test(navigator.userAgent)) location.href = u; else window.open(u, '_blank', 'noopener') };
+  window.MMAbrirWa = abrirWa;
   /* ---------- 1) Ficha: galería + WhatsApp fijo + perfil ---------- */
   function mejorarFicha() {
     const card = $('card'); if (!card || card.classList.contains('hidden') || card.dataset.mmOk === card.innerHTML.length + '') return;
@@ -23,10 +31,16 @@
         sc.addEventListener('scroll', () => { cnt.textContent = Math.round(sc.scrollLeft / sc.clientWidth) + 1 + '/' + n }, { passive: true });
       }
     }
-    // botón WhatsApp/Contactar grande y fijo
-    if (!card.querySelector('.mmSticky')) {
-      const wa = [...card.querySelectorAll('a')].find(a => /wa\.me|Contactar|Contact/i.test(a.href + a.textContent));
-      if (wa) { const s = document.createElement('div'); s.className = 'mmSticky'; const c = wa.cloneNode(true); c.className = ''; c.innerHTML = '🟢 ' + E(T('Contactar por WhatsApp')); c.onclick = e => { e.preventDefault(); const A = [...card.querySelectorAll('a')].filter(x => !x.closest('.mmSticky')); const t = A.find(x => /wa\.me\/\d/.test(x.href)) || A.find(x => /Contactar|Contact/i.test(x.textContent)) || wa; t.click() }; s.appendChild(c); card.appendChild(s) }
+    // botón WhatsApp grande y fijo (WhatsApp del anuncio) o chat interno
+    const pc = (typeof UI !== 'undefined') && UI.cur;
+    if (pc && !card.querySelector('.mmSticky')) {
+      const u = waUrl(pc), s = document.createElement('div'); s.className = 'mmSticky'; const c = document.createElement(u ? 'a' : 'button');
+      if (u) { c.href = u; c.rel = 'noopener'; c.innerHTML = '🟢 ' + E(T('Contactar por WhatsApp')); c.onclick = e => { e.preventDefault(); abrirWa(u) } }
+      else { c.type = 'button'; c.style.background = '#0f766e'; c.innerHTML = '💬 ' + E(T('Escribir por chat de MapMarket')) + `<span style="font-size:11px;font-weight:400;display:block;opacity:.85">${E(T('El anunciante aún no agregó WhatsApp'))}</span>`; c.style.flexDirection = 'column';
+        c.onclick = () => { const b = [...card.querySelectorAll('button')].find(b => !b.closest('.mmSticky') && /mensaje|message|chat/i.test(b.textContent)); b ? b.click() : (location.href = 'mensajes.html') } }
+      s.appendChild(c); card.appendChild(s);
+      // los demás enlaces wa.me de la ficha apuntan al mismo número
+      card.querySelectorAll('a[href*="wa.me"]').forEach(a => { if (a.closest('.mmSticky')) return; if (u) { a.href = u; a.onclick = e => { e.preventDefault(); abrirWa(u) } } });
     }
     // perfil público del anunciante
     const p = (typeof UI !== 'undefined') && UI.cur;
@@ -57,6 +71,9 @@
       const save = $('nSave'), fin = $('nFotos'); if (!save) return;
       ['nT', 'nP', 'nB', 'nBa', 'nA', 'nL', 'nD'].forEach(id => { const i = $(id); if (i) { i.required = true; const l = i.closest('label'); if (l && !/\*/.test(l.firstChild.textContent || '')) l.firstChild.textContent += ' *' } });
       const d = $('nD'); if (d && d.tagName === 'INPUT') { const ta = document.createElement('textarea'); ta.id = 'nD'; ta.rows = 4; ta.className = d.className; ta.value = d.value; ta.required = true; ta.placeholder = T('Describe la propiedad (mínimo 40 caracteres): estado, acabados, acceso, servicios…'); d.replaceWith(ta) }
+      $('nErr').insertAdjacentHTML('beforebegin', `<div class="mt-3 rounded-lg border border-green-500 p-3 text-sm"><label class="block font-semibold">🟢 ${T('WhatsApp para este anuncio')} *<div class="flex mt-1"><span class="px-2 flex items-center rounded-l border dark:border-slate-600 bg-slate-100 dark:bg-slate-700">+506</span><input id="nWa" inputmode="tel" maxlength="12" placeholder="8888 8888" class="flex-1 px-2 rounded-r border dark:bg-slate-700 dark:border-slate-600" style="min-height:44px"></div></label>
+        <label class="flex gap-2 items-start mt-2 text-xs"><input id="nWaOk" type="checkbox" class="w-5 h-5"> <span>${T('Acepto que este número se muestre a usuarios con sesión iniciada para que me contacten por WhatsApp sobre este anuncio.')}</span></label></div>`);
+      (async () => { try { const c = await Auth.client(), u = await Auth.user(); if (!u) return; const { data } = await c.from('profiles').select('telefono').eq('id', u.id).maybeSingle(); if (data && data.telefono && !$('nWa').value) $('nWa').value = data.telefono.replace('+506', '') } catch (e) {} })();
       const top = save.closest('.mt-4') || save.parentNode;
       top.insertAdjacentHTML('beforebegin', planesPanel(true));
       if (fin) {
@@ -71,6 +88,7 @@
         if (!lote && !(+v('nB') >= 0 && v('nB') !== '')) err.push(T('Habitaciones')); if (!lote && v('nBa') === '') err.push(T('Baños'));
         if (!(+v('nA') > 0)) err.push(T('Área m²')); if (!v('nL')) err.push(T('Zona / cantón')); if (v('nD').length < 40) err.push(T('Descripción (mín. 40 caracteres)'));
         if (!(UI.draft && UI.draft.lat)) err.push(T('Ubicación en el mapa'));
+        if ($('nSrv') && $('nSrv').checked) { if (!window.MMWa()) err.push(T('WhatsApp (8 dígitos de Costa Rica)')); else if (!$('nWaOk').checked) err.push(T('Aceptar que se muestre el WhatsApp')) }
         const srv = $('nSrv') && $('nSrv').checked, q = fin && (fin._mmQ || (fin.files.length ? await revisarFotos([...fin.files]) : []));
         if (srv && q) { if (q.length < 4 || q.length > 6) err.push(T('Fotos: de 4 a 6')); if (q.some(x => x.w < MINW || x.h < MINH)) err.push(T('Fotos con resolución mínima 800×600')) }
         if (err.length) { $('nErr').innerHTML = '⚠️ ' + T('Completa:') + ' ' + err.map(E).join(', '); $('nErr').scrollIntoView({ block: 'center', behavior: 'smooth' }); return }
@@ -144,9 +162,22 @@
     load();
   }
 
+  /* ---------- Mis anuncios sin WhatsApp (cuenta.html) ---------- */
+  async function cuentaWa() {
+    if (!/cuenta\.html/.test(location.pathname) || $('mmWaFalta')) return; const c = await client(), u = c && await Auth.user(); if (!u) return;
+    const { data } = await c.from('anuncios').select('id,titulo').eq('owner_id', u.id).is('whatsapp', null).in('estado', ['aprobado', 'pendiente', 'pausado']);
+    if (!data || !data.length) return; const box = document.createElement('div'); box.id = 'mmWaFalta'; box.className = 'max-w-3xl mx-auto px-4 mt-4';
+    const { data: pf } = await c.from('profiles').select('telefono').eq('id', u.id).maybeSingle();
+    box.innerHTML = `<div class="rounded-2xl border-2 border-green-500 bg-green-50 dark:bg-green-950 p-4"><b>🟢 ${data.length} ${T('anuncio(s) sin WhatsApp')}</b><p class="text-sm mt-1">${T('Los compradores no pueden escribirte por WhatsApp. Agrega tu número (se mostrará a usuarios con sesión iniciada).')}</p>
+      <div class="flex gap-2 mt-2"><span class="px-2 flex items-center rounded border dark:border-slate-600">+506</span><input id="mmWaIn" inputmode="tel" value="${E(((pf && pf.telefono) || '').replace('+506', ''))}" placeholder="8888 8888" class="flex-1 px-2 rounded border dark:bg-slate-700 dark:border-slate-600" style="min-height:44px"><button id="mmWaSv" class="rounded-lg bg-green-600 text-white px-4 font-semibold" style="min-height:44px">${T('Guardar en todos')}</button></div><p id="mmWaMsg" class="text-xs mt-1" role="status"></p></div>`;
+    const m = document.querySelector('main'); m ? m.before(box) : document.body.prepend(box);
+    $('mmWaSv').onclick = async () => { const n = normWa($('mmWaIn').value); if (!n) { $('mmWaMsg').textContent = '⚠️ ' + T('Número inválido: 8 dígitos de Costa Rica.'); return }
+      const { error } = await c.from('anuncios').update({ whatsapp: n }).in('id', data.map(x => x.id)); if (error) { $('mmWaMsg').textContent = '❌ ' + error.message; return } box.remove(); toast('✅ ' + T('WhatsApp guardado')) };
+  }
+
   /* ---------- arranque ---------- */
   const start = () => {
-    valorLogin(); adminTestimonios();
+    valorLogin(); adminTestimonios(); setTimeout(cuentaWa, 1500);
     const card = $('card'); if (card) new MutationObserver(() => setTimeout(mejorarFicha, 30)).observe(card, { childList: true, attributes: true, attributeFilter: ['class'] });
     let k = 0; const t = setInterval(() => { if ((typeof UI !== 'undefined') && UI.publish) hookPublicar(); const ok = hookMapa(); if ($('mmInicio')) valorLanding(); if ((ok || (typeof App !== 'undefined' && App._mmS)) && typeof UI !== 'undefined' && UI._mmPub || ++k > 60 || !$('card')) clearInterval(t) }, 250);
     new MutationObserver(() => { if ($('mmInicio')) valorLanding() }).observe(document.body, { childList: true });

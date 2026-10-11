@@ -452,4 +452,4 @@ async function loadData(){const g=n=>fetch(CONFIG.dataBase+n+'?v='+Date.now().to
  $('fxLbl').textContent=`₡→$ 1 USD ≈ ${CONFIG.USD_CRC} CRC (BCCR compra ${fx.compra} / venta ${fx.venta}, ${fx.fecha})`;
  $('upd').textContent='Actualizado: '+new Date(meta.last_updated).toLocaleString('es-CR',{dateStyle:'medium',timeStyle:'short'})}
 window.addEventListener('DOMContentLoaded',async()=>{try{await loadData()}catch(e){console.error('loadData',e);alert('No se pudieron cargar los datos: '+e.message);return}App.init();Chat.init();Plus.init().then(()=>Feat.init())});
-</script><script src="js/notif.js" defer></script><script src="js/mejoras.js" defer></script></body></html>
+</script><script src="js/notif.js" defer></script><script src="js/mejoras.js" defer></script><script src="js/admin-ficha.js" defer></script></body></html>

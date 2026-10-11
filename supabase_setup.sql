@@ -1710,3 +1710,20 @@ alter table public.testimonios enable row level security;
 drop policy if exists "testimonios ver" on public.testimonios; create policy "testimonios ver" on public.testimonios for select to anon, authenticated using (visible or public.es_admin());
 drop policy if exists "testimonios admin" on public.testimonios; create policy "testimonios admin" on public.testimonios for all to authenticated using (public.es_admin()) with check (public.es_admin());
 select 1;
+-- v17: ocultar anuncios de ejemplo (estáticos) por admin
+create table if not exists public.anuncios_ocultos (id text primary key, motivo text, admin_id uuid default auth.uid(), created_at timestamptz default now());
+alter table public.anuncios_ocultos enable row level security;
+drop policy if exists "ocultos ver" on public.anuncios_ocultos; create policy "ocultos ver" on public.anuncios_ocultos for select to authenticated using (true);
+drop policy if exists "ocultos admin" on public.anuncios_ocultos; create policy "ocultos admin" on public.anuncios_ocultos for all to authenticated using (public.es_admin()) with check (public.es_admin());
+select 1;
+-- v18: WhatsApp por anuncio (visible a usuarios con sesión)
+alter table public.anuncios add column if not exists whatsapp text;
+do $$ begin if not exists (select 1 from pg_constraint where conname='anuncios_whatsapp_chk') then alter table public.anuncios add constraint anuncios_whatsapp_chk check (whatsapp is null or whatsapp ~ '^\+506[2-8][0-9]{7}$'); end if; end $$;
+-- ocultar anuncios de ejemplo (por admin), con auditoría
+create or replace function public.admin_ocultar_demo(ids text[], motivo text default null) returns int language plpgsql security definer set search_path=public as $$
+declare n int; begin if not public.es_admin() then raise exception 'Solo admin'; end if;
+ insert into anuncios_ocultos(id,motivo,admin_id) select unnest(ids), left(motivo,300), auth.uid() on conflict (id) do nothing; get diagnostics n = row_count;
+ insert into admin_auditoria(admin_id,accion,detalle,nota) values(auth.uid(),'ocultar_demo',jsonb_build_object('ids',ids),left(motivo,300)); return n; end $$;
+revoke execute on function public.admin_ocultar_demo(text[],text) from anon, public; grant execute on function public.admin_ocultar_demo(text[],text) to authenticated;
+notify pgrst, 'reload schema';
+select 1;

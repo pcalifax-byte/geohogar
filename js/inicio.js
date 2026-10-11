@@ -15,7 +15,7 @@
   ov.addEventListener('click', e => { if (e.target.closest('#mmIniMapa,#mmIniMapa2')) cerrar() });
   document.addEventListener('keydown', function k(e) { if (e.key === 'Escape' && document.getElementById('mmInicio')) { cerrar(); document.removeEventListener('keydown', k) } });
   function pintar() {
-    const tier = p => (window.MMTier ? MMTier(p) : 0), act = (App.all || []).filter(p => p.status === 'activa' && p.lat);
+    const tier = p => (window.MMTier ? MMTier(p) : 0), act = (App.all || []).filter(p => p.status === 'activa' && p.lat && !(window.MMOcultos && MMOcultos.has(String(p.id))));
     let L = act.filter(p => tier(p) > 0).sort((a, b) => tier(b) - tier(a) || String(b.date || '').localeCompare(String(a.date || '')));
     const rec = act.filter(p => p.usuario && !tier(p)).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     if (L.length < 6) L = L.concat(rec.slice(0, 9 - L.length));

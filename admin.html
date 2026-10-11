@@ -36,4 +36,4 @@ $('out').addEventListener('click',async e=>{const b=e.target.closest('button[dat
 (async()=>{const u=await Auth.user();if(!u){location.href='login.html?next=admin.html';return}
  C=await Auth.client();const {data:adm}=await C.rpc('es_admin');if(!adm){$('out').innerHTML='<p>🔒 Esta sección es solo para administradores (perfil con <code>rol = admin</code>).</p>';return}
  $('tabs').innerHTML=Object.entries(T).map(([k,[t]])=>`<button role="tab" data-k="${k}" style="min-height:44px">${t}</button>`).join('');$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>show(b.dataset.k));show('moderacion')})();
-</script><script src="js/admin-gestion.js"></script><script src="js/notif.js" defer></script><script src="js/mejoras.js" defer></script></body></html>
+</script><script src="js/admin-gestion.js"></script><script src="js/admin-ficha.js" defer></script><script src="js/notif.js" defer></script><script src="js/mejoras.js" defer></script></body></html>

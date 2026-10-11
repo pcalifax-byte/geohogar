@@ -62,7 +62,14 @@
   T.anuncios = ['📋 Anuncios', async () => {
     let qy = C.from('anuncios').select('*').order('created_at', { ascending: false }).limit(200); if (A.e) qy = qy.eq('estado', A.e); if (A.q) qy = qy.ilike('titulo', '%' + A.q + '%');
     const { data, error } = await qy; if (error) throw error;
+    let demos = []; try { const j = await (await fetch('data/propiedades.json', { cache: 'no-store' })).json(); demos = (Array.isArray(j) ? j : j.items || j.propiedades || []).filter(x => x.demo) } catch (e) {}
+    const { data: ocs } = await C.from('anuncios_ocultos').select('id'); const H = new Set((ocs || []).map(x => String(x.id)));
     bind(async (g, b, r) => {
+      if (g.startsWith('demo')) { const dlg = window.MMDialogo || (async m => confirm(m) ? '' : null);
+        if (g === 'demo:restaurar') { if (await dlg('¿Restaurar todos los ejemplos ocultos?', { campo: false }) === null) return; const { error } = await C.from('anuncios_ocultos').delete().neq('id', ''); if (error) throw error; return rerender() }
+        const ids = g === 'demo:todos' ? demos.map(x => String(x.id)) : [...document.querySelectorAll('#out input.dsel:checked')].map(x => x.value); if (!ids.length) return alert('Selecciona ejemplos');
+        const m = await dlg(`¿Eliminar ${ids.length} anuncio(s) de ejemplo? Se ocultan para todos los usuarios. Motivo:`, { ok: 'Eliminar', peligro: true }); if (m === null) return;
+        const { error } = await C.rpc('admin_ocultar_demo', { ids, motivo: m || null }); if (error) throw error; return rerender() }
       if (g === 'filtrar') { A.e = $('aE').value; A.q = $('aQ').value.trim(); return rerender() }
       if (g === 'todos') { document.querySelectorAll('#out input.gsel').forEach(x => x.checked = b.dataset.on !== '1'); b.dataset.on = b.dataset.on === '1' ? '0' : '1'; return }
       const [acc, masivo] = g.split(':'); const ids = masivo ? sel() : [r.dataset.id]; if (!ids.length) return alert('Selecciona anuncios');
@@ -71,6 +78,9 @@
     return `<div class="flex flex-wrap gap-2 mb-3"><select id="aE" aria-label="Estado" class="h-10 px-2 rounded-lg border dark:bg-slate-800">${['', 'pendiente', 'aprobado', 'rechazado', 'pausado', 'vendido', 'retirado'].map(v => `<option value="${v}" ${A.e === v ? 'selected' : ''}>${v || 'Todos los estados'}</option>`).join('')}</select><input id="aQ" value="${E(A.q)}" placeholder="Buscar título" aria-label="Buscar anuncio" class="h-10 px-3 rounded-lg border dark:bg-slate-800 flex-1">${btn('filtrar', 'Filtrar', 'bg-teal-600 text-white border-teal-600')}</div>
       <div class="flex flex-wrap gap-1.5 mb-2 text-sm">${btn('todos', '☑ Seleccionar todo')}${btn('aprobar:m', 'Aprobar sel.')}${btn('rechazar:m', 'Rechazar sel.')}${btn('pausar:m', 'Pausar sel.')}${btn('eliminar:m', '🗑️ Eliminar sel.', 'text-red-600')}</div>
       <p class="text-xs opacity-70 mb-2">${data.length} anuncios</p>
+      <details class="mb-3 bg-white dark:bg-slate-800 rounded-xl shadow p-3 text-sm"><summary class="cursor-pointer font-semibold">🧪 Anuncios de ejemplo (${demos.length - demos.filter(x => H.has(String(x.id))).length} visibles · ${demos.filter(x => H.has(String(x.id))).length} eliminados)</summary>
+        <div class="flex flex-wrap gap-1.5 my-2">${btn('demo:m', '🗑️ Eliminar ejemplos sel.', 'text-red-600')}${btn('demo:todos', '🗑️ Eliminar todos los ejemplos', 'bg-red-600 text-white border-red-600')}${btn('demo:restaurar', '↩️ Restaurar ejemplos')}</div>
+        ${demos.map(x => `<label class="flex gap-2 items-center py-1 border-t dark:border-slate-700 ${H.has(String(x.id)) ? 'opacity-40 line-through' : ''}"><input type="checkbox" class="dsel w-5 h-5" value="${E(String(x.id))}" ${H.has(String(x.id)) ? 'disabled' : ''}> ${E(x.title)} · ${E(x.province || '')}</label>`).join('')}</details>
       ${data.map(a => `<article data-id="${a.id}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm flex gap-3"><input type="checkbox" class="gsel w-5 h-5 mt-1" value="${a.id}" aria-label="Seleccionar">
         ${a.imagenes?.[0] ? `<img src="${E(a.imagenes[0])}" alt="Foto" loading="lazy" class="w-20 h-20 object-cover rounded">` : ''}
         <div class="flex-1 min-w-0"><b>${E(a.titulo)}</b> <span class="text-xs rounded-full px-2 bg-slate-100 text-slate-700">${a.estado}</span><div class="text-xs opacity-70">${E(a.tipo)} · ${E(a.provincia)} · ${money(a)} · ${d(a.created_at)}${a.motivo_rechazo ? ' · motivo: ' + E(a.motivo_rechazo) : ''}</div>
