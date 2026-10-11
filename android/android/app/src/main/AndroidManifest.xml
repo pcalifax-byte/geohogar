@@ -24,6 +24,14 @@
             </intent-filter>
 
             <!-- Enlaces de MapMarket (confirmación de correo, enlace mágico): "Abrir con MapMarket" -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="mapmarketapp.com" />
+                <data android:host="www.mapmarketapp.com" />
+            </intent-filter>
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

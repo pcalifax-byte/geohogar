@@ -15,7 +15,7 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
-    static final String BASE = "https://pcalifax-byte.github.io/geohogar/";
+    static final String BASE = "https://mapmarketapp.com/";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -54,6 +54,7 @@ public class MainActivity extends BridgeActivity {
             String path = (u.getHost() == null ? "" : u.getHost()) + (u.getEncodedPath() == null ? "" : u.getEncodedPath());
             url = BASE + path + (u.getEncodedQuery() != null ? "?" + u.getEncodedQuery() : "") + (u.getEncodedFragment() != null ? "#" + u.getEncodedFragment() : "");
         }
+        url = url.replace("https://www.mapmarketapp.com/", BASE).replace("https://pcalifax-byte.github.io/geohogar/", BASE);
         if (!url.startsWith(BASE)) return;
         final String target = url;
         getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(target));

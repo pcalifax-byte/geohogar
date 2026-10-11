@@ -2,7 +2,7 @@
 // y envía un correo con las novedades. Correo vía Resend (RESEND_API_KEY + ALERT_FROM); si no hay clave, solo registra.
 // La primera ejecución de cada alerta toma una «línea base» (no envía todo el catálogo).  Llamada: POST con header x-cron-secret.
 import { createClient } from "npm:@supabase/supabase-js@2";
-const SITE = Deno.env.get("SITE_URL") ?? "https://pcalifax-byte.github.io/geohogar/";
+const SITE = Deno.env.get("SITE_URL") ?? "https://mapmarketapp.com/";
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 type P = { id: string; title: string; type: string; price: number | null; currency: string; province: string; lat: number; lon: number; beds?: number; status?: string; demo?: boolean; precio_flag?: string };
 const pip = (x: number, y: number, ring: number[][]) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };

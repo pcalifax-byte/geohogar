@@ -2,7 +2,7 @@
 GitHub Pages es estático y los rastreadores no ejecutan JS, por eso cada anuncio tiene su HTML mínimo que redirige al mapa."""
 import json, os, html, re
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-SITE = "https://pcalifax-byte.github.io/geohogar/"
+SITE = "https://mapmarketapp.com/"
 def precio(p):
     if not p.get("price"): return "Precio a consultar"
     s = "₡" if p.get("currency") == "CRC" else "$"

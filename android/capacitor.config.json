@@ -3,10 +3,10 @@
   "appName": "MapMarket",
   "webDir": "www",
   "server": {
-    "url": "https://pcalifax-byte.github.io/geohogar/index.html?source=android",
+    "url": "https://mapmarketapp.com/index.html?source=android",
     "errorPath": "index.html",
-    "allowNavigation": ["pcalifax-byte.github.io", "cgswjjhvmexeiglzrysv.supabase.co"]
+    "allowNavigation": ["mapmarketapp.com", "www.mapmarketapp.com", "pcalifax-byte.github.io", "cgswjjhvmexeiglzrysv.supabase.co"]
   },
-  "android": { "allowMixedContent": false, "appendUserAgent": "MapMarketApp/1.0" },
+  "android": { "allowMixedContent": false, "appendUserAgent": "MapMarketApp/1.2" },
   "plugins": { "SplashScreen": { "launchShowDuration": 1200, "backgroundColor": "#0d9488", "showSpinner": false, "androidScaleType": "CENTER_INSIDE" } }
 }

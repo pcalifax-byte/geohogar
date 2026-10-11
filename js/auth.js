@@ -16,7 +16,7 @@
     return sb;
   }
   // Base fija para enlaces de correo: nunca localhost ni la raíz de github.io
-  const base = () => (/^https:/.test(location.href) && location.pathname.includes('/geohogar/')) ? new URL('./', location.href).href : (C.siteUrl || new URL('./', location.href).href);
+  const base = () => (/^https:/.test(location.href) && (/(^|\.)mapmarketapp\.com$|github\.io$/.test(location.hostname))) ? new URL('./', location.href).href : (C.siteUrl || new URL('./', location.href).href);
   const cb = (tipo, next) => base() + 'confirmar.html?tipo=' + tipo + (next ? '&next=' + encodeURIComponent(next) : '');
   const back = () => cb('signup', C.redirectTras || 'index.html');
   // Si un correo cayó en otra página (p. ej. Site URL = index.html), mandarlo a confirmar.html

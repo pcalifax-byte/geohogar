@@ -1,7 +1,7 @@
 /* MapMarket · configuración pública (sin secretos).
    supabaseAnonKey es una clave PÚBLICA (protegida por RLS); nunca pongas aquí la service_role key. */
 window.GH_CONFIG = {
-  siteUrl: 'https://pcalifax-byte.github.io/geohogar/',   // base pública para los enlaces de los correos
+  siteUrl: 'https://mapmarketapp.com/',   // base pública para los enlaces de los correos
   supabaseUrl: 'https://cgswjjhvmexeiglzrysv.supabase.co',          // ej. 'https://xxxx.supabase.co'  (vacío = modo demo)
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnc3dqamh2bWV4ZWlnbHpyeXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NjAxOTcsImV4cCI6MjEwNzIzNjE5N30.GYt_Ssx9sE_MoqmJ7uRGCZuS6g9z-6JCK-6uTGQlgAw',      // clave anon pública del proyecto
   // ONVO Pay (Costa Rica) · solo IDs públicos. El cobro se crea en la Edge Function 'onvo-checkout' (llave secreta solo en Supabase).

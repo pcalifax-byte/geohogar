@@ -3,7 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { cors, json, onvo } from "../_shared/onvo.ts";
 
-const SITE = Deno.env.get("SITE_URL") ?? "https://pcalifax-byte.github.io/geohogar/";
+const SITE = Deno.env.get("SITE_URL") ?? "https://mapmarketapp.com/";
 const PRICES: Record<string, string> = {
   mensual: Deno.env.get("ONVO_PRICE_MENSUAL") ?? "cmv2wqq6w20bik36vkrllfl8e", // ₡3.990/mes (modo test)
   anual: Deno.env.get("ONVO_PRICE_ANUAL") ?? "cmv2wqqz91za8k86v0ucnv13w",   // ₡29.990/año (modo test)
