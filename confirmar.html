@@ -9,7 +9,7 @@
 </div>
 <script>
 const $=i=>document.getElementById(i),Q=new URLSearchParams(location.search),H=new URLSearchParams(location.hash.slice(1));
-const tipo=Q.get('tipo')||(H.get('type')==='recovery'?'recovery':H.get('type')==='magiclink'?'magic':'signup'),next=Auth.safeNext(Q.get('next'));
+const tipo=Q.get('tipo')||(H.get('type')==='email_change'?'email':H.get('type')==='recovery'?'recovery':H.get('type')==='magiclink'?'magic':'signup'),next=Auth.safeNext(Q.get('next'));
 const ok=(t,d,go)=>{$('ic').textContent='✅';$('ic').classList.remove('animate-pulse');$('t').textContent=t;$('d').textContent=d;if(go)setTimeout(()=>location.replace(Auth.planPendiente()||go),1800)};
 const fail=(t,d)=>{$('ic').textContent='⚠️';$('ic').classList.remove('animate-pulse');$('t').textContent=t;$('d').textContent=d;$('re').classList.remove('hidden');$('em').value=localStorage.getItem('mm_ultimo_email')||''};
 const MSG={otp_expired:'El enlace venció o ya fue usado (los enlaces sirven una sola vez y duran poco). Pide uno nuevo abajo.',access_denied:'El enlace no es válido o ya fue usado. Pide uno nuevo abajo.'};
@@ -27,6 +27,7 @@ $('rb').onclick=async()=>{const e=$('em').value.trim();if(!e){$('rm').textConten
   history.replaceState(null,'',location.pathname+'?tipo='+tipo);
   if(!s){fail('No encontramos una sesión','Abre el enlace más reciente desde el mismo navegador, o pide uno nuevo.');return}
   if(tipo==='recovery')ok('Enlace verificado','Ahora crea tu nueva contraseña.','cuenta.html#nueva-clave');
+  else if(tipo==='email')ok('¡Correo actualizado!','Tu cuenta ahora usa '+s.user.email+'.','cuenta.html');
   else ok('¡Correo confirmado!','Bienvenido a MapMarket, '+s.user.email+'. Te llevamos al mapa…',next);
  }catch(x){fail('No pudimos confirmar el enlace',/expired|invalid/i.test(x.message)?MSG.otp_expired:x.message)}
 })();

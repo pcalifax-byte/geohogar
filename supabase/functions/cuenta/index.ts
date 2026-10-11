@@ -35,6 +35,8 @@ Deno.serve(async (req) => {
         await db.from("profiles").update({ suscripcion_cancelada_at: new Date().toISOString() }).eq("id", user.id);
       } else if (accion === "cancelar") return json({ error: "No tienes una suscripción activa para cancelar" }, 400);
       if (accion === "cancelar") return json({ ok: true, plus_until: p?.plus_until });
+      // Datos personales: el perfil se borra en cascada; aquí se eliminan también las fotos (perfil y anuncios)
+      for (const b of ["avatares", "anuncios"]) { try { const { data: fs } = await db.storage.from(b).list(user.id, { limit: 1000 }); if (fs?.length) await db.storage.from(b).remove(fs.map((f) => `${user.id}/${f.name}`)); } catch (_) { /* sin fotos */ } }
       const { error: de } = await db.auth.admin.deleteUser(user.id);
       if (de) throw de;
       return json({ ok: true, eliminado: true });

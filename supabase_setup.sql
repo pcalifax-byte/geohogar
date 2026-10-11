@@ -1240,3 +1240,82 @@ BEGIN
 END $$;
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v10 (planes Gratis/Plus/Pro) listo ✅' AS resultado;
+
+-- =====================================================================
+-- v11 · Contorno del terreno en anuncios + Datos personales del perfil
+-- =====================================================================
+ALTER TABLE public.anuncios ADD COLUMN IF NOT EXISTS poligono JSONB;          -- GeoJSON Polygon (lon,lat)
+ALTER TABLE public.anuncios ADD COLUMN IF NOT EXISTS area_terreno NUMERIC;     -- m² calculados del contorno
+ALTER TABLE public.anuncios DROP CONSTRAINT IF EXISTS anuncios_poligono_chk;
+ALTER TABLE public.anuncios ADD CONSTRAINT anuncios_poligono_chk CHECK (poligono IS NULL OR (poligono->>'type' = 'Polygon' AND jsonb_typeof(poligono->'coordinates'->0) = 'array' AND jsonb_array_length(poligono->'coordinates'->0) BETWEEN 4 AND 600 AND octet_length(poligono::text) < 40000));
+ALTER TABLE public.anuncios DROP CONSTRAINT IF EXISTS anuncios_area_terreno_chk;
+ALTER TABLE public.anuncios ADD CONSTRAINT anuncios_area_terreno_chk CHECK (area_terreno IS NULL OR area_terreno BETWEEN 0 AND 1e9);
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS apellidos TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS whatsapp BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS telefono_publico BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS provincia TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS canton TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS distrito TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS senas TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cedula TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS foto_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS idioma TEXT NOT NULL DEFAULT 'es';
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_datos_chk;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_datos_chk CHECK (
+  (nombre IS NULL OR char_length(nombre) <= 80) AND (apellidos IS NULL OR char_length(apellidos) <= 100)
+  AND (telefono IS NULL OR telefono ~ '^\+506[2-8][0-9]{7}$')
+  AND (provincia IS NULL OR provincia IN ('San José','Alajuela','Cartago','Heredia','Guanacaste','Puntarenas','Limón'))
+  AND (canton IS NULL OR char_length(canton) <= 60) AND (distrito IS NULL OR char_length(distrito) <= 60) AND (senas IS NULL OR char_length(senas) <= 300)
+  AND (cedula IS NULL OR cedula ~ '^[0-9A-Za-z-]{9,20}$')
+  AND (foto_url IS NULL OR foto_url LIKE '%/storage/v1/object/public/avatares/%')
+  AND idioma IN ('es','en'));
+REVOKE UPDATE ON public.profiles FROM authenticated;
+GRANT UPDATE (nombre, apellidos, telefono, whatsapp, telefono_publico, provincia, canton, distrito, senas, cedula, foto_url, idioma) ON public.profiles TO authenticated;
+DROP POLICY IF EXISTS "perfil admin lectura" ON public.profiles;
+CREATE POLICY "perfil admin lectura" ON public.profiles FOR SELECT TO authenticated USING (public.es_admin());
+DROP POLICY IF EXISTS "perfil admin editar" ON public.profiles;
+CREATE POLICY "perfil admin editar" ON public.profiles FOR UPDATE TO authenticated USING (public.es_admin()) WITH CHECK (public.es_admin());
+
+-- Vista pública mínima: solo nombre y foto de agentes/anunciantes; teléfono solo si el dueño lo permite
+CREATE OR REPLACE VIEW public.perfiles_publicos WITH (security_invoker = false) AS
+  SELECT p.id, p.nombre,
+    CASE WHEN p.foto_url IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.imagenes_moderacion m WHERE m.url = p.foto_url AND m.estado IN ('marcada','rechazada')) THEN p.foto_url END AS foto_url,
+    CASE WHEN p.telefono_publico THEN p.telefono END AS telefono,
+    CASE WHEN p.telefono_publico THEN p.whatsapp ELSE FALSE END AS whatsapp,
+    p.rol
+  FROM public.profiles p
+  WHERE p.rol IN ('agente','admin') OR EXISTS (SELECT 1 FROM public.anuncios a WHERE a.owner_id = p.id AND a.estado IN ('aprobado','vendido'));
+REVOKE ALL ON public.perfiles_publicos FROM anon, authenticated;
+GRANT SELECT ON public.perfiles_publicos TO anon, authenticated;
+
+-- Foto de perfil: bucket público 'avatares' (carpeta = id del usuario) + cola de moderación
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('avatares','avatares',true,1048576,ARRAY['image/jpeg','image/png','image/webp'])
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 1048576;
+DROP POLICY IF EXISTS "avatares subir" ON storage.objects;
+CREATE POLICY "avatares subir" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'avatares' AND (storage.foldername(name))[1] = auth.uid()::text);
+DROP POLICY IF EXISTS "avatares borrar" ON storage.objects;
+CREATE POLICY "avatares borrar" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'avatares' AND ((storage.foldername(name))[1] = auth.uid()::text OR public.es_admin()));
+CREATE OR REPLACE FUNCTION public.registrar_avatar(p_url TEXT, p_score JSONB DEFAULT NULL, p_marcar BOOLEAN DEFAULT FALSE) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL OR p_url NOT LIKE '%/storage/v1/object/public/avatares/'||auth.uid()||'/%' THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  INSERT INTO imagenes_moderacion(url, owner_id, estado, score, fuente) VALUES (p_url, auth.uid(), CASE WHEN p_marcar THEN 'marcada' ELSE 'sin_revisar' END, jsonb_build_object('cliente', p_score), 'avatar')
+  ON CONFLICT (url) DO NOTHING;
+  UPDATE profiles SET foto_url = p_url WHERE id = auth.uid();
+END $$;
+REVOKE ALL ON FUNCTION public.registrar_avatar(TEXT,JSONB,BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.registrar_avatar(TEXT,JSONB,BOOLEAN) TO authenticated;
+
+-- Admin: ficha completa de un usuario
+CREATE OR REPLACE FUNCTION public.admin_usuario_datos(uid UUID) RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  RETURN (SELECT jsonb_build_object('nombre',nombre,'apellidos',apellidos,'telefono',telefono,'whatsapp',whatsapp,'telefono_publico',telefono_publico,'provincia',provincia,'canton',canton,'distrito',distrito,'senas',senas,'cedula',cedula,'foto_url',foto_url,'idioma',idioma,'baneado',baneado) FROM profiles WHERE id = uid);
+END $$;
+REVOKE ALL ON FUNCTION public.admin_usuario_datos(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_usuario_datos(UUID) TO authenticated;
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v11 (contornos + datos personales) listo ✅' AS resultado;

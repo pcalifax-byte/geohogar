@@ -41,7 +41,7 @@
       urls.push(c.storage.from('anuncios').getPublicUrl(path).data.publicUrl); meta.push({ score: sc, marcar });
     }
     const n = v => v === '' || v == null ? null : +v;
-    const row = { titulo: d.nT.trim().slice(0, 140), tipo: d.nY, provincia: PROV.includes(d.nV) ? d.nV : 'San José', zona: (d.nL || '').slice(0, 120) || null, precio: +d.nP, moneda: d.nC, habitaciones: n(d.nB), banos: n(d.nBa), area: n(d.nA), descripcion: (d.nD || '').slice(0, 2000) || null, amenidades: d.am || [], imagenes: urls, lat: d.lat, lon: d.lon };
+    const row = { titulo: d.nT.trim().slice(0, 140), tipo: d.nY, provincia: PROV.includes(d.nV) ? d.nV : 'San José', zona: (d.nL || '').slice(0, 120) || null, precio: +d.nP, moneda: d.nC, habitaciones: n(d.nB), banos: n(d.nBa), area: n(d.nA), descripcion: (d.nD || '').slice(0, 2000) || null, amenidades: d.am || [], imagenes: urls, lat: d.lat, lon: d.lon, poligono: d.poly || null, area_terreno: d.area_terreno || null };
     const { data: ins, error } = await c.from('anuncios').insert(row).select('id').single(); if (error) { if (/LIMITE_ANUNCIOS/.test(error.message)) { setTimeout(() => Plus.upsell('Más anuncios activos'), 300); throw new Error(error.message.replace(/^.*LIMITE_ANUNCIOS:\s*/, '')) } throw error }
     if (urls.length) { const r = await c.rpc('registrar_imagenes', { anuncio: ins.id, items: urls.map((url, i) => ({ url, ...meta[i] })) }); if (r.error) console.warn('moderación', r.error);
       c.functions.invoke('moderar-imagenes', { body: { anuncio: ins.id } }).catch(() => {}) }
@@ -57,7 +57,7 @@
       const local = save.onclick;
       save.onclick = async () => {
         const d = {}; ['nT', 'nY', 'nV', 'nP', 'nC', 'nB', 'nBa', 'nA', 'nL', 'nD'].forEach(k => d[k] = $(k).value); d.am = [...document.querySelectorAll('.nAm:checked')].map(x => x.value);
-        const dr = UI.draft || {}; d.lat = dr.lat; d.lon = dr.lon;
+        const dr = UI.draft || {}; d.lat = dr.lat; d.lon = dr.lon; d.poly = dr.poly || null; d.area_terreno = dr.area_terreno || null;
         const srv = $('nSrv').checked, files = $('nFotos').files;
         if (srv && d.nT && +d.nP && d.lat) {
           if (!(await Social.me())) { if (confirm('Para publicar en MapMarket necesitas iniciar sesión. ¿Ir ahora? (Tu borrador queda guardado solo en este navegador si cancelas)')) { location.href = 'login.html?next=index.html'; return } }
@@ -76,7 +76,7 @@
     const { data, error } = await c.from('anuncios').select('*').in('estado', ['aprobado', 'vendido']).order('created_at', { ascending: false }).limit(1000);
     if (error || !data || !data.length) return;
     try { const { data: oc } = await c.from('imagenes_ocultas').select('url').limit(5000); const hid = new Set((oc || []).map(x => x.url)); data.forEach(a => a.imagenes = (a.imagenes || []).filter(u => !hid.has(u))) } catch (e) {}
-    const ps = data.map(a => ({ id: 'u-' + a.id, owner_id: a.owner_id, title: a.titulo, type: a.tipo, price: +a.precio, currency: a.moneda, beds: a.habitaciones, baths: a.banos, area: a.area, desc: a.descripcion || '', amenidades: a.amenidades || [], amenities: a.amenidades || [], images: a.imagenes || [], location: (a.zona ? a.zona + ', ' : '') + a.provincia, province: a.provincia, lat: a.lat, lon: a.lon, coord: 'exacta', source: 'Publicado en MapMarket', url: '', status: a.estado === 'vendido' ? 'vendida' : 'activa', usuario: true, date: a.created_at.slice(0, 10) }));
+    const ps = data.map(a => ({ id: 'u-' + a.id, owner_id: a.owner_id, title: a.titulo, type: a.tipo, price: +a.precio, currency: a.moneda, beds: a.habitaciones, baths: a.banos, area: a.area, desc: a.descripcion || '', amenidades: a.amenidades || [], amenities: a.amenidades || [], images: a.imagenes || [], location: (a.zona ? a.zona + ', ' : '') + a.provincia, province: a.provincia, lat: a.lat, lon: a.lon, poly: a.poligono || null, area_terreno: a.area_terreno, coord: 'exacta', source: 'Publicado en MapMarket', url: '', status: a.estado === 'vendido' ? 'vendida' : 'activa', usuario: true, date: a.created_at.slice(0, 10) }));
     const have = new Set(App.all.map(p => String(p.id)));
     ps.filter(p => !have.has(p.id)).forEach(p => { App.all.push(p); EMBED.properties.push(p) });
     App.refresh();
