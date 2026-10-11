@@ -1319,3 +1319,69 @@ REVOKE ALL ON FUNCTION public.admin_usuario_datos(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_usuario_datos(UUID) TO authenticated;
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v11 (contornos + datos personales) listo ✅' AS resultado;
+
+-- ═════════ v12 · Gestión de reportes (agrupados, resolución con nota, bloqueo de dueño) ═════════
+ALTER TABLE public.reportes ADD COLUMN IF NOT EXISTS nota_admin TEXT, ADD COLUMN IF NOT EXISTS resuelto_at TIMESTAMPTZ, ADD COLUMN IF NOT EXISTS resuelto_por UUID;
+ALTER TABLE public.retiros ADD COLUMN IF NOT EXISTS nota_admin TEXT, ADD COLUMN IF NOT EXISTS resuelto_at TIMESTAMPTZ;
+ALTER TABLE public.reportes_fotos ADD COLUMN IF NOT EXISTS estado TEXT NOT NULL DEFAULT 'abierto';
+CREATE OR REPLACE FUNCTION public.admin_reportes(ids BIGINT[], accion TEXT, nota TEXT DEFAULT NULL) RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE n INT;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  IF accion NOT IN ('resuelto','descartado','reabrir') THEN RAISE EXCEPTION 'Acción inválida'; END IF;
+  UPDATE reportes SET estado = CASE WHEN accion='reabrir' THEN 'nuevo' ELSE accion END, nota_admin = COALESCE(nota, nota_admin),
+    resuelto_at = CASE WHEN accion='reabrir' THEN NULL ELSE now() END, resuelto_por = CASE WHEN accion='reabrir' THEN NULL ELSE auth.uid() END
+  WHERE id = ANY(ids);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  INSERT INTO admin_auditoria(admin_id, accion, detalle, nota) VALUES (auth.uid(), 'reportes_'||accion, jsonb_build_object('ids', ids), nota);
+  RETURN n;
+END $$;
+CREATE OR REPLACE FUNCTION public.admin_retiros(ids BIGINT[], estado_nuevo TEXT, nota TEXT DEFAULT NULL) RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE n INT;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  IF estado_nuevo NOT IN ('pendiente','retirado','rechazado','corregido') THEN RAISE EXCEPTION 'Estado inválido'; END IF;
+  UPDATE retiros SET estado = estado_nuevo, nota_admin = COALESCE(nota, nota_admin), resuelto_at = CASE WHEN estado_nuevo='pendiente' THEN NULL ELSE now() END WHERE id = ANY(ids);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  INSERT INTO admin_auditoria(admin_id, accion, detalle, nota) VALUES (auth.uid(), 'retiros_'||estado_nuevo, jsonb_build_object('ids', ids), nota);
+  RETURN n;
+END $$;
+CREATE OR REPLACE FUNCTION public.admin_reportes_fotos(urls TEXT[], accion TEXT, nota TEXT DEFAULT NULL) RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE n INT;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  IF accion NOT IN ('resuelto','descartado','reabrir') THEN RAISE EXCEPTION 'Acción inválida'; END IF;
+  UPDATE reportes_fotos SET estado = CASE WHEN accion='reabrir' THEN 'abierto' ELSE accion END WHERE url = ANY(urls);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  INSERT INTO admin_auditoria(admin_id, accion, detalle, nota) VALUES (auth.uid(), 'reportes_fotos_'||accion, jsonb_build_object('urls', urls), nota);
+  RETURN n;
+END $$;
+-- Lista de reportes de fotos agrupados (solo admin)
+CREATE OR REPLACE FUNCTION public.admin_lista_reportes_fotos(p_estado TEXT DEFAULT 'abierto') RETURNS TABLE(url TEXT, n BIGINT, motivos TEXT[], ultimo TIMESTAMPTZ, img_id BIGINT, img_estado TEXT, owner_id UUID)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  RETURN QUERY SELECT r.url, count(*), array_remove(array_agg(DISTINCT r.motivo), NULL), max(r.created_at), m.id, m.estado, m.owner_id
+    FROM reportes_fotos r LEFT JOIN imagenes_moderacion m ON m.url = r.url
+    WHERE (p_estado = 'todos' OR r.estado = p_estado OR (p_estado='cerrado' AND r.estado <> 'abierto'))
+    GROUP BY r.url, m.id, m.estado, m.owner_id ORDER BY count(*) DESC, max(r.created_at) DESC LIMIT 300;
+END $$;
+CREATE OR REPLACE FUNCTION public.admin_bloquear_dueno(uid UUID, nota TEXT DEFAULT NULL) RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE n INT;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  IF uid = auth.uid() THEN RAISE EXCEPTION 'No puedes bloquearte a ti mismo'; END IF;
+  UPDATE profiles SET baneado = TRUE WHERE id = uid;
+  UPDATE anuncios SET estado = 'pausado' WHERE owner_id = uid AND estado IN ('aprobado','pendiente');
+  GET DIAGNOSTICS n = ROW_COUNT;
+  INSERT INTO admin_auditoria(admin_id, objetivo_id, accion, detalle, nota) VALUES (auth.uid(), uid, 'bloquear_dueno', jsonb_build_object('anuncios_pausados', n), nota);
+  RETURN n;
+END $$;
+DO $$ DECLARE f TEXT; BEGIN FOREACH f IN ARRAY ARRAY['admin_reportes(BIGINT[],TEXT,TEXT)','admin_retiros(BIGINT[],TEXT,TEXT)','admin_reportes_fotos(TEXT[],TEXT,TEXT)','admin_lista_reportes_fotos(TEXT)','admin_bloquear_dueno(UUID,TEXT)'] LOOP
+  EXECUTE 'REVOKE ALL ON FUNCTION public.'||f||' FROM PUBLIC, anon'; EXECUTE 'GRANT EXECUTE ON FUNCTION public.'||f||' TO authenticated'; END LOOP; END $$;
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v12 (reportes) listo ✅' AS resultado;

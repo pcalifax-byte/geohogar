@@ -26,12 +26,16 @@
     [/^(\d+) anuncios? activos?$/, (m, n) => `${n} active listing${n === '1' ? '' : 's'}`],
     [/^Encontré (\d+) propiedad(es)?/, (m, n) => `I found ${n} propert${n === '1' ? 'y' : 'ies'}`],
   ];
+  const SUF = [[/\/mes\b/g, '/mo'], [/\/año\b/g, '/yr'], [/\(pago trimestral /g, '(paid quarterly '], [/; seguros aparte\./g, '; insurance not included.'], [/; cuota condominal /g, '; HOA fee '],
+    [/; posible impuesto solidario/g, '; possible luxury home tax'], [/\(construcción > ~₡143M: 0,25–0,55% anual\)/g, '(building > ~₡143M: 0.25–0.55% per year)'], [/^Cuota \+ condominio = /, 'Payment + HOA = '], [/% de tu ingreso → /g, '% of your income → '], [/ \+ condominio /g, ' + HOA '], [/\bpor encima\b/g, 'above'], [/\bpor debajo\b/g, 'below']];
+  const suf = s => { for (const [r, v] of SUF) s = s.replace(r, v); return s };
   const SKIP = 'SCRIPT,STYLE,NOSCRIPT,TEXTAREA,CODE,PRE,svg'.split(',');
   const done = new WeakMap();
   function trText(raw) {
     const k = raw.replace(/\s+/g, ' ').trim(); if (!k || !/[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(k)) return null;
     let t = D[k]; if (!t) for (const [r, f] of PAT) if (r.test(k)) { t = k.replace(r, f); break }
     if (!t) { const f = frag(k); if (f !== k) t = f }
+    { const b = t || k, u = suf(b); if (u !== b) t = u }
     if (!t || t === k) return null;
     const lead = raw.match(/^\s*/)[0], trail = raw.match(/\s*$/)[0]; return lead + t + trail;
   }
@@ -94,21 +98,36 @@
       try { return await ask(s) } finally { orig = null }
     };
   }
-  async function start() {
-    if (lang === 'en') {
-      try { D = await PRE } catch (e) { D = {} }
-      const keys = Object.keys(D).filter(k => k.length >= 8 && /\s/.test(k) && D[k] !== k).sort((a, b) => b.length - a.length).slice(0, 1500);
-      keys.forEach(k => RXmap[k] = D[k]);
-      if (keys.length) RX = new RegExp('(?<![\\wÁÉÍÓÚÑáéíóúñ])(' + keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')(?![\\wÁÉÍÓÚÑáéíóúñ])', 'g');
-      head(); node(document.body);
-      new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') node(m.target); else m.addedNodes.forEach(node) } if (document.title && /[áéíóúñ]|·/.test(document.title)) head() }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-      const ac = window.alert, cf = window.confirm, pr = window.prompt;
-      window.alert = m => ac(T(String(m))); window.confirm = m => cf(T(String(m))); window.prompt = (m, d) => pr(T(String(m)), d);
-    }
+  function build(d) {
+    D = d || {}; RXmap = {};
+    const keys = Object.keys(D).filter(k => k.length >= 8 && /\s/.test(k) && D[k] !== k).sort((a, b) => b.length - a.length).slice(0, 1500);
+    keys.forEach(k => RXmap[k] = D[k]);
+    RX = keys.length ? new RegExp('(?<![\\wÁÉÍÓÚÑáéíóúñ])(' + keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')(?![\\wÁÉÍÓÚÑáéíóúñ])', 'g') : null;
+  }
+  let activo = false;
+  function activar() { // traduce lo ya parseado y observa lo que llegue (también durante el parseo del HTML)
+    if (activo) return; activo = true;
+    head(); if (document.body) node(document.body);
+    new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') node(m.target); else m.addedNodes.forEach(node) } if (document.title && /[áéíóúñ]|·/.test(document.title)) head() }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    const ac = window.alert, cf = window.confirm, pr = window.prompt;
+    window.alert = m => ac(T(String(m))); window.confirm = m => cf(T(String(m))); window.prompt = (m, d) => pr(T(String(m)), d);
+    document.documentElement.classList.remove('mm-i18n-wait');
+  }
+  function final() {
+    if (lang === 'en' && activo) { head(); node(document.body) }
     document.documentElement.classList.remove('mm-i18n-wait');
     selector(); hreflang(); chatEN(); window.addEventListener('mm-feat-ready', () => { selector(); chatEN() });
   }
-  const PRE = lang === 'en' ? fetch('data/i18n/en.json').then(r => r.json()) : null;
-  if (lang === 'en') { document.documentElement.classList.add('mm-i18n-wait'); const st = document.createElement('style'); st.textContent = '.mm-i18n-wait body{visibility:hidden}'; document.head.appendChild(st); setTimeout(() => document.documentElement.classList.remove('mm-i18n-wait'), 2500) }
-  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', start) : start();
+  if (lang === 'en') {
+    // Caché local del diccionario: pinta en inglés de inmediato en visitas siguientes; se refresca en segundo plano
+    const CK = 'mm_i18n_en'; let cache = null; try { cache = JSON.parse(localStorage.getItem(CK) || 'null') } catch (e) { }
+    const red = fetch('data/i18n/en.json', { cache: 'no-cache' }).then(r => r.ok ? r.text() : Promise.reject()).then(txt => { try { if (!cache || cache.t !== txt.length + ':' + txt.slice(-40)) localStorage.setItem(CK, JSON.stringify({ t: txt.length + ':' + txt.slice(-40), d: JSON.parse(txt) })) } catch (e) { } return JSON.parse(txt) });
+    if (cache && cache.d) { build(cache.d); activar(); red.then(d => { if (JSON.stringify(d).length !== JSON.stringify(D).length) { build(d); node(document.body) } }).catch(() => { }) }
+    else {
+      document.documentElement.classList.add('mm-i18n-wait'); const st = document.createElement('style'); st.textContent = '.mm-i18n-wait body{visibility:hidden}'; document.head.appendChild(st);
+      setTimeout(() => document.documentElement.classList.remove('mm-i18n-wait'), 1200);
+      red.then(d => { build(d); activar() }).catch(() => { build({}); activar() });
+    }
+  }
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', final) : final();
 })();

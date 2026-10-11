@@ -105,6 +105,104 @@
     return `<div class="overflow-x-auto"><table class="w-full text-xs bg-white dark:bg-slate-800 rounded-xl"><tr class="text-left opacity-60"><th class="p-2">Cuándo</th><th>Admin</th><th>Acción</th><th>Objetivo</th><th>Detalle</th><th>Nota</th></tr>${data.map(r => `<tr class="border-t dark:border-slate-700 align-top"><td class="p-2 whitespace-nowrap">${d(r.created_at)}</td><td>${E((r.admin_id || '').slice(0, 8))}</td><td>${E(r.accion)}</td><td>${E((r.objetivo_id || '').slice(0, 8))}</td><td class="max-w-[320px] break-all">${E(JSON.stringify(r.detalle))}</td><td>${E(r.nota || '')}</td></tr>`).join('')}</table></div>`;
   }];
 
+  // ---------- Reportes (agrupados por anuncio, con acciones directas) ----------
+  const R = { e: 'abierto', q: '' };
+  const MOT = { vendida: 'Ya se vendió', datos: 'Datos incorrectos', duplicado: 'Duplicado', fraude: 'Fraude/estafa', otro: 'Otro' };
+  const chip = (t, c = 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100') => `<span class="text-xs rounded-full px-2 ${c}">${E(t)}</span>`;
+  const uuidDe = pid => { const m = String(pid || '').match(/^u-([0-9a-f-]{36})$/i); return m ? m[1] : null };
+  T.reportes = ['🚩 Reportes', async () => {
+    let qy = C.from('reportes').select('*').order('created_at', { ascending: false }).limit(500);
+    qy = R.e === 'abierto' ? qy.eq('estado', 'nuevo') : R.e === 'cerrado' ? qy.neq('estado', 'nuevo') : qy;
+    const [r, u] = await Promise.all([qy, C.from('reportes_usuarios').select('*').order('created_at', { ascending: false }).limit(100)]); if (r.error) throw r.error;
+    const G = {}; r.data.forEach(x => (G[x.property_id] = G[x.property_id] || []).push(x));
+    const uids = [...new Set(Object.keys(G).map(uuidDe).filter(Boolean))];
+    const an = uids.length ? ((await C.from('anuncios').select('id,titulo,precio,moneda,estado,imagenes,owner_id,provincia,tipo,lat,lon,descripcion').in('id', uids)).data || []) : [];
+    const AN = Object.fromEntries(an.map(a => [a.id, a]));
+    const owners = [...new Set(an.map(a => a.owner_id).filter(Boolean))];
+    const pf = owners.length ? ((await C.from('profiles').select('id,nombre,baneado').in('id', owners)).data || []) : [];
+    const PF = Object.fromEntries(pf.map(p => [p.id, p]));
+    let grupos = Object.entries(G).map(([pid, rs]) => ({ pid, rs, a: AN[uuidDe(pid)] }));
+    if (R.q) { const q = R.q.toLowerCase(); grupos = grupos.filter(g => (g.pid + ' ' + (g.a?.titulo || '')).toLowerCase().includes(q)) }
+    grupos.sort((x, y) => y.rs.length - x.rs.length);
+    bind(async (g, b, card) => {
+      if (g === 'filtrar') { R.e = $('rE').value; R.q = $('rQ').value.trim(); return rerender() }
+      if (g === 'todos') { document.querySelectorAll('#out input.gsel').forEach(x => x.checked = b.dataset.on !== '1'); b.dataset.on = b.dataset.on === '1' ? '0' : '1'; return }
+      const [acc, m] = g.split(':'); const cards = m ? sel().map(v => document.querySelector(`#out [data-id="${CSS.escape(v)}"]`)).filter(Boolean) : [card];
+      if (!cards.length) return alert('Selecciona reportes');
+      const repIds = cards.flatMap(c => c.dataset.rids.split(',').map(Number));
+      if (acc === 'resuelto' || acc === 'descartado' || acc === 'reabrir') { const nota = await ask(`${acc === 'reabrir' ? 'Reabrir' : acc === 'resuelto' ? 'Marcar resuelto' : 'Descartar'}: ${repIds.length} reporte(s). Nota:`); if (nota === null) return; await rpc('admin_reportes', { ids: repIds, accion: acc, nota: nota || null }); return rerender() }
+      if (acc === 'mapa') { window.open('index.html?p=' + encodeURIComponent(card.dataset.pid), '_blank'); return }
+      if (acc === 'bloquear') { const o = card.dataset.owner; if (!o) return alert('Este anuncio no tiene dueño en MapMarket.'); const nota = await ask('¿Suspender al dueño (no podrá publicar) y pausar sus anuncios? Motivo:'); if (nota === null) return; await rpc('admin_bloquear_dueno', { uid: o, nota }); return rerender() }
+      const ids = cards.map(c => uuidDe(c.dataset.pid)).filter(Boolean); if (!ids.length) return alert('Solo se puede actuar sobre anuncios publicados en MapMarket.');
+      const ok = await Admin.anuncios(ids, acc, an); if (ok && acc === 'eliminar') await rpc('admin_reportes', { ids: repIds, accion: 'resuelto', nota: 'Anuncio eliminado' }); rerender()
+    });
+    const est = { aprobado: 'bg-emerald-100 text-emerald-900', pendiente: 'bg-amber-100 text-amber-900', pausado: 'bg-slate-200 text-slate-800', rechazado: 'bg-red-100 text-red-900' };
+    return `<div class="flex flex-wrap gap-2 mb-3"><select id="rE" aria-label="Estado" class="h-10 px-2 rounded-lg border dark:bg-slate-800">${[['abierto', 'Abiertos'], ['cerrado', 'Resueltos / descartados'], ['todos', 'Todos']].map(([v, t]) => `<option value="${v}" ${R.e === v ? 'selected' : ''}>${t}</option>`).join('')}</select><input id="rQ" value="${E(R.q)}" placeholder="Buscar anuncio" aria-label="Buscar anuncio" class="h-10 px-2 rounded-lg border dark:bg-slate-800 flex-1 min-w-[160px]">${btn('filtrar', 'Filtrar')}</div>
+      <div class="flex flex-wrap gap-1.5 mb-2 text-sm">${btn('todos', '☑ Seleccionar todo')}${btn('resuelto:m', '✔ Resolver sel.')}${btn('descartado:m', '✖ Descartar sel.')}${btn('pausar:m', 'Pausar sel.')}${btn('rechazar:m', 'Rechazar sel.')}${btn('eliminar:m', '🗑️ Eliminar sel.', 'text-red-600')}</div>
+      <p class="text-xs opacity-70 mb-2">${grupos.length} anuncios · ${r.data.length} reportes</p>
+      ${grupos.map(({ pid, rs, a }) => { const o = a && PF[a.owner_id]; const cnt = {}; rs.forEach(x => cnt[x.motivo] = (cnt[x.motivo] || 0) + 1); const abiertos = rs.some(x => x.estado === 'nuevo');
+        return `<article data-id="${E(pid)}" data-pid="${E(pid)}" data-rids="${rs.map(x => x.id).join(',')}" data-owner="${a?.owner_id || ''}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm flex gap-3"><input type="checkbox" class="gsel w-5 h-5 mt-1" value="${E(pid)}" aria-label="Seleccionar">
+        ${a?.imagenes?.[0] ? `<img src="${E(a.imagenes[0])}" alt="Foto" loading="lazy" class="w-20 h-20 object-cover rounded">` : '<div class="w-20 h-20 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs">Sin fotos</div>'}
+        <div class="flex-1 min-w-0"><div class="flex flex-wrap gap-1 items-center"><b>${E(a?.titulo || pid)}</b>${a ? chip(a.estado, est[a.estado]) : chip('sin dueño en MapMarket')}${chip('🚩 ' + rs.length, 'bg-red-100 text-red-900 dark:bg-red-900 dark:text-red-100')}${abiertos ? '' : chip('cerrado')}</div>
+          <div class="text-xs opacity-70">${a ? `${E(a.tipo)} · ${E(a.provincia)} · ${money(a)} · ` : ''}${o ? `Dueño: ${E(o.nombre || a.owner_id.slice(0, 8))}${o.baneado ? ' (suspendido)' : ''}` : ''}</div>
+          <div class="text-xs mt-1">${Object.entries(cnt).map(([k, v]) => chip(`${MOT[k] || k} ×${v}`, 'bg-amber-50 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100')).join(' ')}</div>
+          <ul class="text-xs mt-1 opacity-80">${rs.slice(0, 5).map(x => `<li>${d(x.created_at)} · ${E(MOT[x.motivo] || x.motivo)}${x.detalle ? ': ' + E(x.detalle) : ''}${x.estado !== 'nuevo' ? ` · <i>${E(x.estado)}${x.nota_admin ? ' — ' + E(x.nota_admin) : ''}</i>` : ''}</li>`).join('')}${rs.length > 5 ? `<li>+${rs.length - 5}…</li>` : ''}</ul>
+          <div class="flex flex-wrap gap-1.5 mt-2">${btn('mapa', '🗺️ Ver en mapa')}${a ? btn('editar', '✏️ Editar') + (a.estado === 'pausado' ? btn('reactivar', '▶️ Reactivar') : btn('pausar', '⏸ Pausar')) + btn('rechazar', '⛔ Rechazar') + btn('eliminar', '🗑️ Eliminar', 'text-red-600') + (a.owner_id ? btn('bloquear', '🚫 Bloquear dueño') : '') : ''}${abiertos ? btn('resuelto', '✔ Resuelto') + btn('descartado', '✖ Descartar') : btn('reabrir', '↩ Reabrir')}</div></div></article>` }).join('') || '<p class="opacity-70">Sin reportes.</p>'}
+      <h2 class="font-bold mt-6">Usuarios reportados (chat)</h2>${(u.data || []).length ? '<ul class="text-sm mt-2 space-y-1">' + u.data.map(x => `<li class="bg-white dark:bg-slate-800 rounded p-2">${d(x.created_at)} · <a class="underline" href="mensajes.html?c=${x.conversacion_id}">conv #${x.conversacion_id ?? '–'}</a> · usuario ${E((x.reported_id || '').slice(0, 8))}… · ${E(x.motivo)}</li>`).join('') + '</ul>' : '<p class="opacity-70 text-sm">Ninguno.</p>'}`
+  }];
+
+  // ---------- Retiros ----------
+  const RT = { e: 'pendiente' };
+  T.retiros = ['📰 Retiros', async () => {
+    let qy = C.from('retiros').select('*').order('created_at', { ascending: false }).limit(300); if (RT.e !== 'todos') qy = RT.e === 'cerrado' ? qy.neq('estado', 'pendiente') : qy.eq('estado', RT.e);
+    const { data, error } = await qy; if (error) throw error;
+    const ref = x => { const m = String(x.listing_ref).match(/u-([0-9a-f-]{36})/i) || String(x.listing_ref).match(/([0-9a-f]{8}-[0-9a-f-]{27})/i); return m ? m[1] : null };
+    const ids = [...new Set(data.map(ref).filter(Boolean))];
+    const an = ids.length ? ((await C.from('anuncios').select('id,titulo,precio,moneda,estado,imagenes,owner_id,provincia,tipo').in('id', ids)).data || []) : []; const AN = Object.fromEntries(an.map(a => [a.id, a]));
+    bind(async (g, b, card) => {
+      if (g === 'filtrar') { RT.e = $('tE').value; return rerender() }
+      if (g === 'todos') { document.querySelectorAll('#out input.gsel').forEach(x => x.checked = true); return }
+      const [acc, m] = g.split(':'); const cards = m ? sel().map(v => document.querySelector(`#out [data-id="${v}"]`)).filter(Boolean) : [card]; if (!cards.length) return alert('Selecciona solicitudes');
+      const rids = cards.map(c => +c.dataset.id);
+      if (['retirado', 'corregido', 'rechazado', 'pendiente'].includes(acc)) { const nota = await ask(`Marcar ${rids.length} solicitud(es) como «${acc}». Nota:`); if (nota === null) return; await rpc('admin_retiros', { ids: rids, estado_nuevo: acc, nota: nota || null }); return rerender() }
+      if (acc === 'mapa') { window.open('index.html?p=' + encodeURIComponent('u-' + card.dataset.aid), '_blank'); return }
+      const aids = cards.map(c => c.dataset.aid).filter(Boolean); if (!aids.length) return alert('La solicitud no corresponde a un anuncio publicado en MapMarket.');
+      const ok = await Admin.anuncios(aids, acc, an); if (ok && (acc === 'eliminar' || acc === 'pausar')) await rpc('admin_retiros', { ids: rids, estado_nuevo: 'retirado', nota: 'Anuncio ' + acc }); rerender()
+    });
+    return `<div class="flex flex-wrap gap-2 mb-3"><select id="tE" aria-label="Estado" class="h-10 px-2 rounded-lg border dark:bg-slate-800">${[['pendiente', 'Pendientes'], ['cerrado', 'Atendidas'], ['todos', 'Todas']].map(([v, t]) => `<option value="${v}" ${RT.e === v ? 'selected' : ''}>${t}</option>`).join('')}</select>${btn('filtrar', 'Filtrar')}</div>
+      <div class="flex flex-wrap gap-1.5 mb-2 text-sm">${btn('todos', '☑ Seleccionar todo')}${btn('retirado:m', 'Marcar retirado sel.')}${btn('rechazado:m', 'Rechazar solicitud sel.')}${btn('pausar:m', 'Pausar anuncios sel.')}</div>
+      ${data.map(x => { const a = AN[ref(x)]; return `<article data-id="${x.id}" data-aid="${a?.id || ''}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm flex gap-3"><input type="checkbox" class="gsel w-5 h-5 mt-1" value="${x.id}" aria-label="Seleccionar">
+        ${a?.imagenes?.[0] ? `<img src="${E(a.imagenes[0])}" alt="Foto" loading="lazy" class="w-20 h-20 object-cover rounded">` : ''}
+        <div class="flex-1 min-w-0"><div class="flex flex-wrap gap-1 items-center"><b>${E(a?.titulo || x.listing_ref)}</b>${chip(x.estado, x.estado === 'pendiente' ? 'bg-amber-100 text-amber-900' : undefined)}${a ? chip('anuncio: ' + a.estado) : ''}<span class="text-xs opacity-60 ml-auto">${d(x.created_at)}</span></div>
+          ${a ? `<div class="text-xs opacity-70">${E(a.tipo)} · ${E(a.provincia)} · ${money(a)}</div>` : ''}
+          <p class="text-xs mt-1">${E(x.nombre)} (<a class="underline" href="mailto:${E(x.email)}?subject=${encodeURIComponent('Tu solicitud de retiro en MapMarket')}">${E(x.email)}</a>) · ${E(x.relacion)}</p><p class="text-xs opacity-80 whitespace-pre-wrap">${E(x.motivo)}</p>${x.nota_admin ? `<p class="text-xs italic opacity-70">Nota: ${E(x.nota_admin)}</p>` : ''}
+          <div class="flex flex-wrap gap-1.5 mt-2">${a ? btn('mapa', '🗺️ Ver en mapa') + btn('editar', '✏️ Editar') + (a.estado === 'pausado' ? btn('reactivar', '▶️ Reactivar') : btn('pausar', '⏸ Pausar')) + btn('eliminar', '🗑️ Eliminar', 'text-red-600') : ''}${btn('retirado', 'Marcar retirado')}${btn('corregido', 'Corregido')}${btn('rechazado', 'Rechazar solicitud')}${x.estado !== 'pendiente' ? btn('pendiente', '↩ Reabrir') : ''}</div></div></article>` }).join('') || '<p class="opacity-70">Sin solicitudes.</p>'}`
+  }];
+
+  // ---------- Fotos reportadas ----------
+  const FR = { e: 'abierto' };
+  T.fotosrep = ['📷 Fotos reportadas', async () => {
+    const data = await rpc('admin_lista_reportes_fotos', { p_estado: FR.e }) || [];
+    bind(async (g, b, card) => {
+      if (g === 'filtrar') { FR.e = $('fE').value; return rerender() }
+      if (g === 'ver') { b.closest('figure').querySelector('img').classList.toggle('blur-xl'); return }
+      if (g === 'todos') { document.querySelectorAll('#out input.gsel').forEach(x => x.checked = true); return }
+      const [acc, m] = g.split(':'); const figs = m ? sel().map(v => document.querySelector(`#out figure[data-id="${CSS.escape(v)}"]`)).filter(Boolean) : [card]; if (!figs.length) return alert('Selecciona imágenes');
+      const urls = figs.map(f => f.dataset.url), imgIds = figs.map(f => +f.dataset.img).filter(Boolean);
+      const nota = await ask(`${acc}: ${figs.length} foto(s). Nota:`); if (nota === null) return;
+      if (['aprobar', 'rechazar', 'eliminar', 'banear'].includes(acc)) {
+        if (!imgIds.length) return alert('Esta foto no está en la cola de moderación.');
+        if (acc === 'eliminar') { const paths = urls.map(u => u.split('/object/public/anuncios/')[1]).filter(Boolean); if (paths.length) await C.storage.from('anuncios').remove(paths) }
+        await rpc('admin_imagenes', { ids: imgIds, accion: acc, nota }); await rpc('admin_reportes_fotos', { urls, accion: acc === 'aprobar' ? 'descartado' : 'resuelto', nota });
+      } else await rpc('admin_reportes_fotos', { urls, accion: acc, nota });
+      rerender()
+    });
+    return `<div class="flex flex-wrap gap-2 mb-3"><select id="fE" aria-label="Estado" class="h-10 px-2 rounded-lg border dark:bg-slate-800">${[['abierto', 'Abiertos'], ['cerrado', 'Resueltos / descartados'], ['todos', 'Todos']].map(([v, t]) => `<option value="${v}" ${FR.e === v ? 'selected' : ''}>${t}</option>`).join('')}</select>${btn('filtrar', 'Filtrar')}</div>
+      <div class="flex flex-wrap gap-1.5 mb-2 text-sm">${btn('todos', '☑ Seleccionar todo')}${btn('rechazar:m', '⛔ Ocultar sel.')}${btn('aprobar:m', '✅ Aprobar sel.')}${btn('descartado:m', '✖ Descartar reportes sel.')}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">${data.map((x, i) => `<figure data-id="f${i}" data-url="${E(x.url)}" data-img="${x.img_id || ''}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-2 text-xs"><div class="relative overflow-hidden rounded"><input type="checkbox" class="gsel absolute top-1 left-1 w-5 h-5 z-10" value="f${i}" aria-label="Seleccionar"><img src="${E(x.url)}" alt="Imagen a revisar" loading="lazy" class="w-full h-32 object-cover blur-xl"></div>
+        <figcaption class="mt-1"><b>🚩 ${x.n}</b> · ${E(x.img_estado || 'sin moderación')}<div class="opacity-70">${E((x.motivos || []).join(', '))} · ${d(x.ultimo)}</div><div class="flex flex-wrap gap-1 mt-1">${btn('ver', '👁️')}${btn('aprobar', '✅')}${btn('rechazar', '⛔')}${btn('eliminar', '🗑️')}${x.owner_id ? btn('banear', '🚫 Ban') : ''}${FR.e === 'abierto' ? btn('descartado', '✖') : btn('reabrir', '↩')}</div></figcaption></figure>`).join('') || '<p class="opacity-70">Sin fotos reportadas.</p>'}</div>`
+  }];
+
   }
   // Acciones de anuncios compartidas (panel y ficha del mapa)
   window.Admin = {
