@@ -1,0 +1,28 @@
+{
+ "inicio": "2026-10-11T03:00:50+00:00",
+ "errores": [],
+ "tipo_cambio": {
+  "compra": 449.86,
+  "venta": 455.6,
+  "fecha": "2026-10-10",
+  "fuente": "BCCR (bccr.fi.cr, indicadores 317/318)",
+  "cambio": false
+ },
+ "tasas_cambiadas": [],
+ "limpieza": {
+  "a_consultar": 0,
+  "moneda_corregida": 0,
+  "dudoso": 0,
+  "duplicados": 0,
+  "desplazados": 0,
+  "sin_verificar": 0,
+  "excluidos": 0
+ },
+ "paginas_og": 0,
+ "total_propiedades": 40,
+ "por_estado": {
+  "activa": 40
+ },
+ "datos_cambiaron": true,
+ "fin": "2026-10-11T03:00:54+00:00"
+}

@@ -1,5 +1,5 @@
 {
- "last_updated": "2026-10-10T19:11:59Z",
+ "last_updated": "2026-10-11T03:00:50Z",
  "fuentes": {
   "propiedades": [
    "encuentra24.com",
@@ -19,13 +19,7 @@
    "cambio": false
   },
   "tasas_cambiadas": [],
-  "anuncios": {
-   "revisados": 200,
-   "nuevas_vendidas": 0,
-   "nuevas_retiradas": 0,
-   "reactivadas": 0,
-   "sin_cambio_error": 0
-  },
-  "nuevas": 20
+  "anuncios": null,
+  "nuevas": null
  }
 }
