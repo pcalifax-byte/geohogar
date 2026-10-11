@@ -7,9 +7,13 @@
     for (const [t, cols, col] of [['privado_propiedades', 'id,fuente,titulo,tipo,precio,moneda,provincia,lat,lon,url', '#0369a1'], ['privado_remates', 'id,kind,fuente,titulo,provincia,canton,fecha,lat,lon,url', '#b91c1c']]) {
       for (let from = 0; ; from += 1000) { const { data, error } = await c.from(t).select(cols).not('lat', 'is', null).range(from, from + 999); if (error) throw error; data.forEach(d => all.push([d, col, t])); if (data.length < 1000) break }
     }
+    window.addEventListener('mm-cerca', () => { if (!layer) return; layer.clearLayers(); all.filter(([d]) => !window.Cerca || Cerca.within(d.lat, d.lon)).forEach(a => mkr(a).addTo(layer)) });
     layer = L.markerClusterGroup({ iconCreateFunction: k => L.divIcon({ html: `<div class="cl" style="border-color:#334155;background:#334155">🔒${k.getChildCount()}</div>`, className: '', iconSize: [40, 40] }) });
-    all.forEach(([d, col, t]) => L.circleMarker([d.lat, d.lon], { radius: 6, color: col, weight: 2, fillOpacity: .6 }).bindPopup(`<b>🔒 ${E(d.titulo || d.tipo || d.kind)}</b><br><small>${E(d.fuente || '')} · ${E([d.canton, d.provincia].filter(Boolean).join(', '))}${d.fecha ? ' · ' + E(d.fecha) : ''}${d.precio ? ' · ' + (d.moneda === 'CRC' ? '₡' : '$') + Number(d.precio).toLocaleString('es-CR') : ''}</small>${d.url ? `<br><a target="_blank" rel="noopener noreferrer" href="${E(d.url)}">Abrir fuente</a>` : ''}<br><small>Solo administradores</small>`).addTo(layer));
+    all.filter(([d]) => !window.Cerca || Cerca.within(d.lat, d.lon)).forEach(a => mkr(a).addTo(layer));
     return all.length;
+  }
+  function mkr([d, col, t]) {
+    return L.circleMarker([d.lat, d.lon], { radius: 6, color: col, weight: 2, fillOpacity: .6 }).bindPopup(`<b>🔒 ${E(d.titulo || d.tipo || d.kind)}</b><br><small>${E(d.fuente || '')} · ${E([d.canton, d.provincia].filter(Boolean).join(', '))}${d.fecha ? ' · ' + E(d.fecha) : ''}${d.precio ? ' · ' + (d.moneda === 'CRC' ? '₡' : '$') + Number(d.precio).toLocaleString('es-CR') : ''}</small>${d.url ? `<br><a target="_blank" rel="noopener noreferrer" href="${E(d.url)}">Abrir fuente</a>` : ''}<br><small>Solo administradores</small>${window.Cerca && Cerca.dist(d) != null ? '<br><small>a ' + Cerca.fmt(Cerca.dist(d)) + '</small>' : ''}`);
   }
   window.addEventListener('mm-feat-ready', async () => {
     try {
