@@ -25,3 +25,17 @@
     } catch (e) { console.warn(e) }
   });
 })();
+/* Botón «🗑️ Eliminar (admin)» en la ficha de anuncios publicados por usuarios (solo admin; el servidor lo verifica de nuevo) */
+window.addEventListener('mm-feat-ready', async () => {
+  try {
+    const u = await Auth.user(); if (!u || u.rol !== 'admin' || Auth.demo) return;
+    const sc = UI.showCard.bind(UI);
+    UI.showCard = p => {
+      sc(p); if (!p || !String(p.id).startsWith('u-')) return;
+      const h = document.querySelector('#card h2'); if (!h) return;
+      const b = document.createElement('button'); b.className = 'mt-1 text-xs rounded-lg border border-red-300 text-red-700 px-3'; b.style.minHeight = '40px'; b.textContent = '🗑️ Eliminar (admin)';
+      b.onclick = async () => { try { if (await Admin.anuncios([p.id.slice(2)], 'eliminar')) { App.all = App.all.filter(x => x.id !== p.id); UI.closeCard ? UI.closeCard() : document.getElementById('card').classList.add('hidden'); App.refresh(); Feat.toast('Anuncio eliminado') } } catch (e) { alert(e.message) } };
+      h.parentElement.appendChild(b);
+    };
+  } catch (e) { console.warn('admin card', e) }
+});

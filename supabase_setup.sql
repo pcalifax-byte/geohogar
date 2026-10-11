@@ -787,3 +787,318 @@ DROP POLICY IF EXISTS "solo admin" ON public.privado_remates;
 CREATE POLICY "solo admin" ON public.privado_remates FOR SELECT TO authenticated USING (public.es_admin());
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v8 (datos privados admin) listo ✅' AS resultado;
+
+-- =====================================================================
+-- v9 · Administración de usuarios, auditoría y matriz de permisos
+-- =====================================================================
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS plus_origen TEXT;   -- 'onvo' | 'admin' | NULL
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS plus_nota TEXT;
+
+CREATE TABLE IF NOT EXISTS public.admin_auditoria (
+  id BIGSERIAL PRIMARY KEY,
+  admin_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  objetivo_id UUID,
+  accion TEXT NOT NULL,
+  detalle JSONB,
+  nota TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.admin_auditoria ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.admin_auditoria FROM anon, authenticated;
+GRANT SELECT ON public.admin_auditoria TO authenticated;
+DROP POLICY IF EXISTS "auditoria admin" ON public.admin_auditoria;
+CREATE POLICY "auditoria admin" ON public.admin_auditoria FOR SELECT TO authenticated USING (public.es_admin());
+
+CREATE TABLE IF NOT EXISTS public.permisos (
+  perfil TEXT NOT NULL CHECK (perfil IN ('gratis','plus','agente','admin')),
+  feature TEXT NOT NULL,
+  activo BOOLEAN NOT NULL DEFAULT FALSE,
+  limite INT,                         -- NULL = sin límite (si activo)
+  bloqueado BOOLEAN NOT NULL DEFAULT FALSE,   -- no editable desde el panel (seguridad)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (perfil, feature)
+);
+ALTER TABLE public.permisos ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.permisos FROM anon, authenticated;
+GRANT SELECT ON public.permisos TO anon, authenticated;
+DROP POLICY IF EXISTS "permisos lectura" ON public.permisos;
+CREATE POLICY "permisos lectura" ON public.permisos FOR SELECT TO anon, authenticated USING (true);
+
+INSERT INTO public.permisos (perfil, feature, activo, limite, bloqueado) VALUES
+ ('gratis','favoritos',true,10,false),('plus','favoritos',true,NULL,false),('agente','favoritos',true,10,false),('admin','favoritos',true,NULL,false),
+ ('gratis','listas',true,2,false),('plus','listas',true,NULL,false),('agente','listas',true,2,false),('admin','listas',true,NULL,false),
+ ('gratis','busquedas_guardadas',false,NULL,false),('plus','busquedas_guardadas',true,NULL,false),('agente','busquedas_guardadas',false,NULL,false),('admin','busquedas_guardadas',true,NULL,false),
+ ('gratis','alertas',false,NULL,false),('plus','alertas',true,NULL,false),('agente','alertas',false,NULL,false),('admin','alertas',true,NULL,false),
+ ('gratis','exportar_reportes',false,NULL,false),('plus','exportar_reportes',true,NULL,false),('agente','exportar_reportes',false,NULL,false),('admin','exportar_reportes',true,NULL,false),
+ ('gratis','filtros_avanzados',false,NULL,false),('plus','filtros_avanzados',true,NULL,false),('agente','filtros_avanzados',false,NULL,false),('admin','filtros_avanzados',true,NULL,false),
+ ('gratis','destacar',false,NULL,false),('plus','destacar',false,NULL,false),('agente','destacar',true,NULL,false),('admin','destacar',true,NULL,false),
+ ('gratis','capa_privada',false,NULL,true),('plus','capa_privada',false,NULL,true),('agente','capa_privada',false,NULL,true),('admin','capa_privada',true,NULL,true),
+ ('gratis','moderacion',false,NULL,true),('plus','moderacion',false,NULL,true),('agente','moderacion',false,NULL,true),('admin','moderacion',true,NULL,true)
+ON CONFLICT (perfil, feature) DO NOTHING;
+
+-- Perfiles efectivos de un usuario: plan (gratis|plus) + rol (agente|admin). Se suma lo permitido.
+CREATE OR REPLACE FUNCTION public.perfiles_de(uid UUID) RETURNS TEXT[]
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT ARRAY[CASE WHEN public.is_plus(uid) THEN 'plus' ELSE 'gratis' END]
+         || CASE WHEN p.rol IN ('agente','admin') THEN ARRAY[p.rol] ELSE ARRAY[]::TEXT[] END
+  FROM public.profiles p WHERE p.id = uid;
+$$;
+CREATE OR REPLACE FUNCTION public.permitido(f TEXT) RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE(bool_or(activo), false) FROM public.permisos WHERE feature = f AND perfil = ANY(COALESCE(public.perfiles_de(auth.uid()), ARRAY['gratis']));
+$$;
+-- límite efectivo: NULL = ilimitado; -1 = no permitido
+CREATE OR REPLACE FUNCTION public.limite_de(f TEXT) RETURNS INT
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT CASE WHEN NOT COALESCE(bool_or(activo),false) THEN -1 WHEN bool_or(activo AND limite IS NULL) THEN NULL ELSE max(limite) FILTER (WHERE activo) END
+  FROM public.permisos WHERE feature = f AND perfil = ANY(COALESCE(public.perfiles_de(auth.uid()), ARRAY['gratis']));
+$$;
+REVOKE ALL ON FUNCTION public.perfiles_de(UUID) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.permitido(TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.limite_de(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perfiles_de(UUID), public.permitido(TEXT), public.limite_de(TEXT) TO authenticated;
+
+-- Límites críticos aplicados en el servidor según la matriz
+DROP POLICY IF EXISTS "favoritos insertar con límite" ON public.favoritos;
+CREATE POLICY "favoritos insertar con límite" ON public.favoritos FOR INSERT TO authenticated WITH CHECK (
+  user_id = auth.uid() AND public.limite_de('favoritos') IS DISTINCT FROM -1 AND (public.limite_de('favoritos') IS NULL
+    OR (SELECT count(*) FROM public.favoritos f WHERE f.user_id = auth.uid()) < public.limite_de('favoritos')));
+DROP POLICY IF EXISTS "busquedas crear plus" ON public.busquedas_guardadas;
+CREATE POLICY "busquedas crear plus" ON public.busquedas_guardadas FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() AND public.permitido('busquedas_guardadas'));
+DROP POLICY IF EXISTS "busquedas editar" ON public.busquedas_guardadas;
+CREATE POLICY "busquedas editar" ON public.busquedas_guardadas FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid() AND public.permitido('busquedas_guardadas'));
+DROP POLICY IF EXISTS "alertas precio crear plus" ON public.alertas_precio;
+CREATE POLICY "alertas precio crear plus" ON public.alertas_precio FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() AND public.permitido('alertas'));
+
+-- Listado de usuarios (solo admin; auth.users no es legible por RLS)
+DROP FUNCTION IF EXISTS public.admin_usuarios(TEXT, TEXT, TEXT, INT, INT);
+CREATE FUNCTION public.admin_usuarios(q TEXT DEFAULT '', filtro TEXT DEFAULT '', orden TEXT DEFAULT 'created_at', lim INT DEFAULT 50, desde INT DEFAULT 0)
+RETURNS TABLE (id UUID, email TEXT, nombre TEXT, rol TEXT, plan TEXT, plus_activo BOOLEAN, plus_until TIMESTAMPTZ, plus_origen TEXT,
+  trial_ends_at TIMESTAMPTZ, trial_used BOOLEAN, created_at TIMESTAMPTZ, last_sign_in TIMESTAMPTZ,
+  favoritos BIGINT, publicaciones BIGINT, mensajes BIGINT, total BIGINT)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  RETURN QUERY
+  WITH b AS (
+    SELECT u.id, u.email::TEXT AS email, p.nombre, COALESCE(p.rol,'usuario') AS rol, COALESCE(p.plan,'gratis') AS plan, public.is_plus(u.id) AS plus_activo,
+      p.plus_until, p.plus_origen, p.trial_ends_at, COALESCE(p.trial_used,false) AS trial_used, u.created_at, u.last_sign_in_at AS last_sign_in,
+      (SELECT count(*) FROM public.favoritos f WHERE f.user_id = u.id) AS favoritos,
+      (SELECT count(*) FROM public.anuncios a WHERE a.owner_id = u.id) AS publicaciones,
+      (SELECT count(*) FROM public.mensajes m WHERE m.sender_id = u.id) AS mensajes
+    FROM auth.users u LEFT JOIN public.profiles p ON p.id = u.id
+    WHERE (COALESCE(q,'') = '' OR u.email ILIKE '%'||q||'%' OR p.nombre ILIKE '%'||q||'%')
+  ), f AS (
+    SELECT * FROM b WHERE COALESCE(filtro,'') = '' OR (filtro='plus' AND b.plus_activo) OR (filtro='gratis' AND NOT b.plus_activo)
+      OR (filtro='prueba' AND b.trial_ends_at > now()) OR (filtro IN ('usuario','agente','admin') AND b.rol = filtro) OR (filtro='plus_admin' AND b.plus_origen='admin')
+  )
+  SELECT f.*, count(*) OVER () FROM f
+  ORDER BY CASE WHEN orden='email' THEN f.email END ASC,
+           CASE WHEN orden='last_sign_in' THEN f.last_sign_in END DESC NULLS LAST,
+           CASE WHEN orden='plus_until' THEN f.plus_until END DESC NULLS LAST,
+           CASE WHEN orden='mensajes' THEN f.mensajes END DESC,
+           f.created_at DESC
+  LIMIT LEAST(GREATEST(lim,1),200) OFFSET GREATEST(desde,0);
+END $$;
+
+-- Otorgar / extender / revocar Plus (hasta NULL = revocar)
+CREATE OR REPLACE FUNCTION public.admin_plus(uid UUID, hasta TIMESTAMPTZ, nota TEXT DEFAULT NULL) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE antes JSONB;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  SELECT jsonb_build_object('plan',plan,'plus_until',plus_until,'plus_origen',plus_origen) INTO antes FROM profiles WHERE id = uid;
+  IF antes IS NULL THEN RAISE EXCEPTION 'Usuario no encontrado'; END IF;
+  IF hasta IS NULL THEN
+    UPDATE profiles SET plan='gratis', plus_until=now(), plus_origen=NULL, plus_nota=nota, trial_ends_at=LEAST(trial_ends_at, now()) WHERE id = uid;
+  ELSE
+    IF hasta <= now() THEN RAISE EXCEPTION 'La fecha debe ser futura'; END IF;
+    UPDATE profiles SET plan='plus', plus_until=hasta, plus_origen='admin', plus_nota=nota WHERE id = uid;
+  END IF;
+  INSERT INTO admin_auditoria(admin_id, objetivo_id, accion, detalle, nota)
+  VALUES (auth.uid(), uid, CASE WHEN hasta IS NULL THEN 'plus_revocar' ELSE 'plus_otorgar' END, jsonb_build_object('antes',antes,'hasta',hasta), nota);
+END $$;
+
+-- Cambiar rol con protecciones
+CREATE OR REPLACE FUNCTION public.admin_rol(uid UUID, nuevo TEXT, nota TEXT DEFAULT NULL) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE viejo TEXT;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  IF nuevo NOT IN ('usuario','agente','admin') THEN RAISE EXCEPTION 'Rol inválido'; END IF;
+  SELECT rol INTO viejo FROM profiles WHERE id = uid FOR UPDATE;
+  IF viejo IS NULL THEN RAISE EXCEPTION 'Usuario no encontrado'; END IF;
+  IF viejo = 'admin' AND nuevo <> 'admin' THEN
+    IF uid = auth.uid() THEN RAISE EXCEPTION 'No puedes quitarte el rol de administrador a ti mismo (pídeselo a otro admin).'; END IF;
+    IF (SELECT count(*) FROM profiles WHERE rol = 'admin') <= 1 THEN RAISE EXCEPTION 'No se puede quitar el último administrador.'; END IF;
+  END IF;
+  UPDATE profiles SET rol = nuevo WHERE id = uid;
+  INSERT INTO admin_auditoria(admin_id, objetivo_id, accion, detalle, nota) VALUES (auth.uid(), uid, 'rol', jsonb_build_object('antes',viejo,'despues',nuevo), nota);
+END $$;
+
+-- Editar la matriz de permisos
+CREATE OR REPLACE FUNCTION public.admin_permiso(p_perfil TEXT, p_feature TEXT, p_activo BOOLEAN, p_limite INT DEFAULT NULL, nota TEXT DEFAULT NULL) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE antes JSONB;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  SELECT to_jsonb(x) INTO antes FROM permisos x WHERE perfil = p_perfil AND feature = p_feature;
+  IF antes IS NULL THEN RAISE EXCEPTION 'Permiso desconocido'; END IF;
+  IF (antes->>'bloqueado')::BOOLEAN THEN RAISE EXCEPTION 'Este permiso está bloqueado por seguridad'; END IF;
+  IF p_limite IS NOT NULL AND p_limite < 0 THEN RAISE EXCEPTION 'Límite inválido'; END IF;
+  UPDATE permisos SET activo = p_activo, limite = p_limite, updated_at = now() WHERE perfil = p_perfil AND feature = p_feature;
+  INSERT INTO admin_auditoria(admin_id, accion, detalle, nota) VALUES (auth.uid(), 'permiso', jsonb_build_object('antes',antes,'activo',p_activo,'limite',p_limite), nota);
+END $$;
+
+REVOKE ALL ON FUNCTION public.admin_usuarios(TEXT,TEXT,TEXT,INT,INT), public.admin_plus(UUID,TIMESTAMPTZ,TEXT), public.admin_rol(UUID,TEXT,TEXT), public.admin_permiso(TEXT,TEXT,BOOLEAN,INT,TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_usuarios(TEXT,TEXT,TEXT,INT,INT), public.admin_plus(UUID,TIMESTAMPTZ,TEXT), public.admin_rol(UUID,TEXT,TEXT), public.admin_permiso(TEXT,TEXT,BOOLEAN,INT,TEXT) TO authenticated;
+
+-- v9b · Gestión de anuncios por admin (estado pausado, acciones masivas, aviso al dueño, auditoría)
+ALTER TABLE public.anuncios DROP CONSTRAINT IF EXISTS anuncios_estado_check;
+ALTER TABLE public.anuncios ADD CONSTRAINT anuncios_estado_check CHECK (estado IN ('pendiente','aprobado','rechazado','vendido','retirado','pausado'));
+
+CREATE OR REPLACE FUNCTION public.admin_avisar(dueno UUID, anuncio UUID, texto TEXT) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE cid BIGINT;
+BEGIN
+  INSERT INTO conversaciones(listing_id, user_id, owner_id) VALUES ('u-'||anuncio, dueno, NULL)
+  ON CONFLICT (listing_id, user_id) DO UPDATE SET last_at = now() RETURNING id INTO cid;
+  INSERT INTO mensajes(conversacion_id, sender_id, texto) VALUES (cid, auth.uid(), left(texto, 1000));
+END $$;
+REVOKE ALL ON FUNCTION public.admin_avisar(UUID,UUID,TEXT) FROM PUBLIC, anon, authenticated;
+
+-- accion: aprobar | rechazar | pausar | reactivar | eliminar | editar (cambios jsonb)
+CREATE OR REPLACE FUNCTION public.admin_anuncios(ids UUID[], accion TEXT, motivo TEXT DEFAULT NULL, cambios JSONB DEFAULT NULL) RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE a RECORD; n INT := 0; msg TEXT;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  IF accion NOT IN ('aprobar','rechazar','pausar','reactivar','eliminar','editar') THEN RAISE EXCEPTION 'Acción inválida'; END IF;
+  IF accion = 'rechazar' AND COALESCE(btrim(motivo),'') = '' THEN RAISE EXCEPTION 'Indica el motivo del rechazo'; END IF;
+  FOR a IN SELECT * FROM anuncios WHERE id = ANY(ids) FOR UPDATE LOOP
+    IF accion = 'eliminar' THEN
+      DELETE FROM votos WHERE listing_id = 'u-'||a.id;
+      DELETE FROM favoritos WHERE property_id = 'u-'||a.id;
+      DELETE FROM lista_items WHERE property_id = 'u-'||a.id;
+      DELETE FROM destacadas WHERE property_id = 'u-'||a.id;
+      DELETE FROM anuncios WHERE id = a.id;
+      msg := 'Tu anuncio «'||a.titulo||'» fue eliminado por moderación.'||COALESCE(' Motivo: '||NULLIF(btrim(motivo),''),'');
+    ELSIF accion = 'editar' THEN
+      UPDATE anuncios SET titulo = COALESCE(cambios->>'titulo', titulo), descripcion = COALESCE(cambios->>'descripcion', descripcion),
+        precio = COALESCE((cambios->>'precio')::NUMERIC, precio), moneda = COALESCE(cambios->>'moneda', moneda), tipo = COALESCE(cambios->>'tipo', tipo),
+        zona = COALESCE(cambios->>'zona', zona), habitaciones = COALESCE((cambios->>'habitaciones')::SMALLINT, habitaciones),
+        banos = COALESCE((cambios->>'banos')::NUMERIC, banos), area = COALESCE((cambios->>'area')::NUMERIC, area) WHERE id = a.id;
+      msg := 'Un moderador editó tu anuncio «'||a.titulo||'».'||COALESCE(' Nota: '||NULLIF(btrim(motivo),''),'');
+    ELSE
+      UPDATE anuncios SET estado = CASE accion WHEN 'aprobar' THEN 'aprobado' WHEN 'rechazar' THEN 'rechazado' WHEN 'pausar' THEN 'pausado' ELSE 'aprobado' END,
+        motivo_rechazo = CASE WHEN accion = 'rechazar' THEN left(motivo,300) WHEN accion = 'pausar' THEN left(NULLIF(btrim(motivo),''),300) ELSE NULL END WHERE id = a.id;
+      msg := 'Tu anuncio «'||a.titulo||'» '||CASE accion WHEN 'aprobar' THEN 'fue aprobado y ya está en el mapa.' WHEN 'rechazar' THEN 'fue rechazado. Motivo: '||motivo
+        WHEN 'pausar' THEN 'fue pausado por moderación.'||COALESCE(' Motivo: '||NULLIF(btrim(motivo),''),'') ELSE 'fue reactivado.' END;
+    END IF;
+    IF a.owner_id <> auth.uid() THEN PERFORM public.admin_avisar(a.owner_id, a.id, msg); END IF;
+    INSERT INTO admin_auditoria(admin_id, objetivo_id, accion, detalle, nota)
+    VALUES (auth.uid(), a.owner_id, 'anuncio_'||accion, jsonb_build_object('anuncio', a.id, 'titulo', a.titulo, 'estado_antes', a.estado, 'cambios', cambios, 'imagenes', to_jsonb(a.imagenes)), motivo);
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+REVOKE ALL ON FUNCTION public.admin_anuncios(UUID[],TEXT,TEXT,JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_anuncios(UUID[],TEXT,TEXT,JSONB) TO authenticated;
+
+-- v9c · Moderación de imágenes
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS baneado BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS public.imagenes_moderacion (
+  id BIGSERIAL PRIMARY KEY,
+  url TEXT NOT NULL UNIQUE CHECK (char_length(url) <= 600),
+  anuncio_id UUID REFERENCES public.anuncios(id) ON DELETE CASCADE,
+  owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  estado TEXT NOT NULL DEFAULT 'sin_revisar' CHECK (estado IN ('sin_revisar','aprobada','marcada','rechazada')),
+  score JSONB,               -- {cliente:{...}, servidor:{...}}
+  fuente TEXT,               -- 'nsfwjs-cliente' | 'sightengine' | ...
+  reportes INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revisada_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS imgmod_estado_idx ON public.imagenes_moderacion (estado, created_at DESC);
+ALTER TABLE public.imagenes_moderacion ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.imagenes_moderacion FROM anon, authenticated;
+GRANT SELECT ON public.imagenes_moderacion TO authenticated;
+DROP POLICY IF EXISTS "imgmod admin o dueno" ON public.imagenes_moderacion;
+CREATE POLICY "imgmod admin o dueno" ON public.imagenes_moderacion FOR SELECT TO authenticated USING (public.es_admin() OR owner_id = auth.uid());
+-- URLs ocultas al público (marcadas o rechazadas); solo la URL
+CREATE OR REPLACE VIEW public.imagenes_ocultas WITH (security_invoker = false) AS
+  SELECT url FROM public.imagenes_moderacion WHERE estado IN ('marcada','rechazada');
+GRANT SELECT ON public.imagenes_ocultas TO anon, authenticated;
+
+-- El dueño registra sus fotos con el puntaje del análisis en su navegador
+CREATE OR REPLACE FUNCTION public.registrar_imagenes(anuncio UUID, items JSONB) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE it JSONB;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM anuncios WHERE id = anuncio AND owner_id = auth.uid()) THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  FOR it IN SELECT * FROM jsonb_array_elements(items) LOOP
+    IF (it->>'url') NOT LIKE '%/storage/v1/object/public/anuncios/'||auth.uid()||'/%' THEN CONTINUE; END IF;
+    INSERT INTO imagenes_moderacion(url, anuncio_id, owner_id, estado, score, fuente)
+    VALUES (it->>'url', anuncio, auth.uid(), CASE WHEN (it->>'marcar')::BOOLEAN THEN 'marcada' ELSE 'sin_revisar' END, jsonb_build_object('cliente', it->'score'), 'nsfwjs-cliente')
+    ON CONFLICT (url) DO NOTHING;
+  END LOOP;
+END $$;
+REVOKE ALL ON FUNCTION public.registrar_imagenes(UUID,JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.registrar_imagenes(UUID,JSONB) TO authenticated;
+
+-- «Reportar foto» (usuarios con sesión; 3 reportes la ocultan hasta revisión)
+CREATE TABLE IF NOT EXISTS public.reportes_fotos (url TEXT NOT NULL, user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, motivo TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (url, user_id));
+ALTER TABLE public.reportes_fotos ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.reportes_fotos FROM anon, authenticated;
+CREATE OR REPLACE FUNCTION public.reportar_foto(p_url TEXT, p_motivo TEXT DEFAULT NULL) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE n INT;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Inicia sesión para reportar'; END IF;
+  IF (SELECT count(*) FROM reportes_fotos WHERE user_id = auth.uid() AND created_at > now() - interval '1 day') >= 20 THEN RAISE EXCEPTION 'Límite diario de reportes alcanzado'; END IF;
+  IF p_url NOT LIKE '%/storage/v1/object/public/anuncios/%' THEN RAISE EXCEPTION 'Foto no válida'; END IF;
+  INSERT INTO reportes_fotos(url, user_id, motivo) VALUES (p_url, auth.uid(), left(p_motivo, 300)) ON CONFLICT DO NOTHING;
+  SELECT count(*) INTO n FROM reportes_fotos WHERE url = p_url;
+  INSERT INTO imagenes_moderacion(url, owner_id, estado, reportes, fuente)
+  VALUES (p_url, (SELECT owner_id FROM anuncios WHERE p_url = ANY(imagenes) LIMIT 1), 'sin_revisar', n, 'reporte')
+  ON CONFLICT (url) DO UPDATE SET reportes = n, estado = CASE WHEN n >= 3 AND imagenes_moderacion.estado <> 'aprobada' THEN 'marcada' ELSE imagenes_moderacion.estado END;
+END $$;
+REVOKE ALL ON FUNCTION public.reportar_foto(TEXT,TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.reportar_foto(TEXT,TEXT) TO authenticated;
+
+-- Acciones de admin sobre imágenes: aprobar | rechazar | eliminar | banear (al dueño)
+CREATE OR REPLACE FUNCTION public.admin_imagenes(ids BIGINT[], accion TEXT, nota TEXT DEFAULT NULL) RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE r RECORD; n INT := 0;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  IF accion NOT IN ('aprobar','rechazar','eliminar','banear') THEN RAISE EXCEPTION 'Acción inválida'; END IF;
+  FOR r IN SELECT * FROM imagenes_moderacion WHERE id = ANY(ids) LOOP
+    IF accion = 'aprobar' THEN UPDATE imagenes_moderacion SET estado='aprobada', revisada_at=now() WHERE id = r.id;
+    ELSIF accion IN ('rechazar','eliminar') THEN
+      UPDATE imagenes_moderacion SET estado='rechazada', revisada_at=now() WHERE id = r.id;
+      IF accion = 'eliminar' THEN UPDATE anuncios SET imagenes = array_remove(imagenes, r.url) WHERE r.url = ANY(imagenes); END IF;
+    ELSIF accion = 'banear' AND r.owner_id IS NOT NULL THEN
+      IF r.owner_id = auth.uid() THEN RAISE EXCEPTION 'No puedes banearte a ti mismo'; END IF;
+      UPDATE profiles SET baneado = TRUE WHERE id = r.owner_id;
+      UPDATE imagenes_moderacion SET estado='rechazada', revisada_at=now() WHERE id = r.id;
+      UPDATE anuncios SET estado='pausado', motivo_rechazo='Cuenta suspendida por moderación' WHERE owner_id = r.owner_id AND estado IN ('aprobado','pendiente');
+    END IF;
+    INSERT INTO admin_auditoria(admin_id, objetivo_id, accion, detalle, nota) VALUES (auth.uid(), r.owner_id, 'imagen_'||accion, jsonb_build_object('imagen', r.id, 'url', r.url), nota);
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+REVOKE ALL ON FUNCTION public.admin_imagenes(BIGINT[],TEXT,TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_imagenes(BIGINT[],TEXT,TEXT) TO authenticated;
+
+-- Usuarios baneados no pueden publicar ni editar anuncios
+CREATE OR REPLACE FUNCTION public.anuncios_baneo() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.es_admin() AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND baneado) THEN RAISE EXCEPTION 'Tu cuenta está suspendida para publicar.'; END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS anuncios_baneo_trg ON public.anuncios;
+CREATE TRIGGER anuncios_baneo_trg BEFORE INSERT OR UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_baneo();
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v9 (usuarios, permisos, anuncios admin) listo ✅' AS resultado;

@@ -11,18 +11,40 @@
       img.onerror = () => ko(new Error('Imagen no válida')); img.src = url;
     });
   }
+  // Análisis de imágenes en el navegador (nsfwjs, carga diferida). Si no carga, no bloquea: queda «sin revisar» para el admin.
+  let _nsfw = null;
+  function cargarNsfw() {
+    if (_nsfw) return _nsfw;
+    const js = src => new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s) });
+    _nsfw = js('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js').then(() => js('https://cdn.jsdelivr.net/npm/nsfwjs@2.4.2/dist/nsfwjs.min.js')).then(() => nsfwjs.load()).catch(e => { console.warn('nsfw', e); return null });
+    return _nsfw;
+  }
+  async function analizar(blob) {
+    try {
+      const m = await Promise.race([cargarNsfw(), new Promise(r => setTimeout(() => r(null), 15000))]); if (!m) return null;
+      const img = await createImageBitmap(blob); const c = document.createElement('canvas'); c.width = 299; c.height = 299; c.getContext('2d').drawImage(img, 0, 0, 299, 299);
+      const pr = await m.classify(c); const o = {}; pr.forEach(x => o[x.className] = +x.probability.toFixed(3)); return o;
+    } catch (e) { console.warn('nsfw', e); return null }
+  }
   async function enviar(d, files, msg) {
     const c = await backend(), u = await Social.me(); if (!c || !u) throw new Error('Inicia sesión para publicar en MapMarket');
-    const urls = [];
+    const urls = [], meta = [];
     for (const [i, f] of [...files].slice(0, 6).entries()) {
       msg(`Subiendo foto ${i + 1} de ${Math.min(files.length, 6)}…`);
       const b = await shrink(f), path = `${u.id}/${Date.now()}-${i}.jpg`;
+      msg(`Revisando foto ${i + 1}…`); const sc = await analizar(b);
+      const malo = sc ? (sc.Porn || 0) + (sc.Hentai || 0) : 0;
+      if (malo >= 0.85) throw new Error(`La foto ${i + 1} parece contenido inapropiado y no se puede publicar. Si es un error, usa otra foto.`);
+      const marcar = !!sc && (malo >= 0.5 || (sc.Sexy || 0) >= 0.7);
+      if (marcar && !confirm(`La foto ${i + 1} podría no ser apropiada. Quedará oculta hasta que un moderador la revise. ¿Continuar?`)) throw new Error('Publicación cancelada');
       const { error } = await c.storage.from('anuncios').upload(path, b, { contentType: 'image/jpeg', upsert: false }); if (error) throw error;
-      urls.push(c.storage.from('anuncios').getPublicUrl(path).data.publicUrl);
+      urls.push(c.storage.from('anuncios').getPublicUrl(path).data.publicUrl); meta.push({ score: sc, marcar });
     }
     const n = v => v === '' || v == null ? null : +v;
     const row = { titulo: d.nT.trim().slice(0, 140), tipo: d.nY, provincia: PROV.includes(d.nV) ? d.nV : 'San José', zona: (d.nL || '').slice(0, 120) || null, precio: +d.nP, moneda: d.nC, habitaciones: n(d.nB), banos: n(d.nBa), area: n(d.nA), descripcion: (d.nD || '').slice(0, 2000) || null, amenidades: d.am || [], imagenes: urls, lat: d.lat, lon: d.lon };
-    const { error } = await c.from('anuncios').insert(row); if (error) throw error;
+    const { data: ins, error } = await c.from('anuncios').insert(row).select('id').single(); if (error) throw error;
+    if (urls.length) { const r = await c.rpc('registrar_imagenes', { anuncio: ins.id, items: urls.map((url, i) => ({ url, ...meta[i] })) }); if (r.error) console.warn('moderación', r.error);
+      c.functions.invoke('moderar-imagenes', { body: { anuncio: ins.id } }).catch(() => {}) }
   }
   function patchPublish() {
     const orig = UI.publish.bind(UI);
@@ -53,11 +75,13 @@
     const c = await backend(); if (!c) return;
     const { data, error } = await c.from('anuncios').select('*').in('estado', ['aprobado', 'vendido']).order('created_at', { ascending: false }).limit(1000);
     if (error || !data || !data.length) return;
+    try { const { data: oc } = await c.from('imagenes_ocultas').select('url').limit(5000); const hid = new Set((oc || []).map(x => x.url)); data.forEach(a => a.imagenes = (a.imagenes || []).filter(u => !hid.has(u))) } catch (e) {}
     const ps = data.map(a => ({ id: 'u-' + a.id, owner_id: a.owner_id, title: a.titulo, type: a.tipo, price: +a.precio, currency: a.moneda, beds: a.habitaciones, baths: a.banos, area: a.area, desc: a.descripcion || '', amenidades: a.amenidades || [], amenities: a.amenidades || [], images: a.imagenes || [], location: (a.zona ? a.zona + ', ' : '') + a.provincia, province: a.provincia, lat: a.lat, lon: a.lon, coord: 'exacta', source: 'Publicado en MapMarket', url: '', status: a.estado === 'vendido' ? 'vendida' : 'activa', usuario: true, date: a.created_at.slice(0, 10) }));
     const have = new Set(App.all.map(p => String(p.id)));
     ps.filter(p => !have.has(p.id)).forEach(p => { App.all.push(p); EMBED.properties.push(p) });
     App.refresh();
   }
+  window.MMcargarAprobados = cargarAprobados;
   window.addEventListener('mm-feat-ready', () => { try { patchPublish() } catch (e) { console.warn(e) } cargarAprobados() });
   window.Publicar = { cargarAprobados, shrink };
 })();
