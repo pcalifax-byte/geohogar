@@ -26,7 +26,7 @@
     // botón WhatsApp/Contactar grande y fijo
     if (!card.querySelector('.mmSticky')) {
       const wa = [...card.querySelectorAll('a')].find(a => /wa\.me|Contactar|Contact/i.test(a.href + a.textContent));
-      if (wa) { const s = document.createElement('div'); s.className = 'mmSticky'; const c = wa.cloneNode(true); c.className = ''; c.innerHTML = '🟢 ' + E(T('Contactar por WhatsApp')); c.onclick = e => { if (wa.getAttribute('href') === '#') { e.preventDefault(); wa.click() } }; s.appendChild(c); card.appendChild(s) }
+      if (wa) { const s = document.createElement('div'); s.className = 'mmSticky'; const c = wa.cloneNode(true); c.className = ''; c.innerHTML = '🟢 ' + E(T('Contactar por WhatsApp')); c.onclick = e => { e.preventDefault(); const A = [...card.querySelectorAll('a')].filter(x => !x.closest('.mmSticky')); const t = A.find(x => /wa\.me\/\d/.test(x.href)) || A.find(x => /Contactar|Contact/i.test(x.textContent)) || wa; t.click() }; s.appendChild(c); card.appendChild(s) }
     }
     // perfil público del anunciante
     const p = (typeof UI !== 'undefined') && UI.cur;
