@@ -1655,3 +1655,31 @@ END $$;
 DROP TRIGGER IF EXISTS anuncios_destacado_guard ON public.anuncios;
 CREATE TRIGGER anuncios_destacado_guard BEFORE INSERT OR UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_destacado_guard();
 SELECT 'v13b listo ✅' AS resultado;
+-- v13c · el dueño puede pausar su anuncio aprobado y reactivarlo (si lo pausó él, sin cambios de contenido)
+CREATE OR REPLACE FUNCTION public.anuncios_guardia() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  NEW.updated_at := now();
+  IF public.es_admin() THEN RETURN NEW; END IF;
+  IF TG_OP = 'INSERT' THEN
+    NEW.owner_id := auth.uid(); NEW.estado := 'pendiente'; NEW.motivo_rechazo := NULL; NEW.created_at := now();
+    IF (SELECT count(*) FROM anuncios WHERE owner_id = auth.uid() AND created_at > now() - interval '1 day') >= 10 THEN RAISE EXCEPTION 'Máximo 10 anuncios por día.'; END IF;
+  ELSE
+    NEW.owner_id := OLD.owner_id; NEW.created_at := OLD.created_at;
+    IF NEW.estado = 'retirado' THEN NULL;
+    ELSIF (NEW.titulo, NEW.precio, NEW.imagenes, NEW.descripcion, NEW.lat, NEW.lon, NEW.poligono::text, NEW.tipo, NEW.moneda) IS NOT DISTINCT FROM (OLD.titulo, OLD.precio, OLD.imagenes, OLD.descripcion, OLD.lat, OLD.lon, OLD.poligono::text, OLD.tipo, OLD.moneda)
+      AND ((NEW.estado = 'vendido' AND OLD.estado IN ('aprobado','vendido'))
+        OR (NEW.estado = 'pausado' AND OLD.estado = 'aprobado')
+        OR (NEW.estado = 'aprobado' AND OLD.estado = 'pausado' AND OLD.motivo_rechazo IS NULL)
+        OR NEW.estado = OLD.estado AND OLD.estado <> 'rechazado' AND (NEW.habitaciones, NEW.banos, NEW.area, NEW.zona, NEW.amenidades) IS NOT DISTINCT FROM (OLD.habitaciones, OLD.banos, OLD.area, OLD.zona, OLD.amenidades)) THEN NULL;
+    ELSE NEW.estado := 'pendiente'; NEW.motivo_rechazo := NULL; END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+SELECT 'v13c listo ✅' AS resultado;
+-- v13d · fecha de venta
+ALTER TABLE public.anuncios ADD COLUMN IF NOT EXISTS vendido_at TIMESTAMPTZ;
+CREATE OR REPLACE FUNCTION public.anuncios_vendido_at() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN IF NEW.estado = 'vendido' AND (TG_OP = 'INSERT' OR OLD.estado IS DISTINCT FROM 'vendido') THEN NEW.vendido_at := COALESCE(NEW.vendido_at, now()); ELSIF NEW.estado <> 'vendido' THEN NEW.vendido_at := NULL; END IF; RETURN NEW; END $$;
+DROP TRIGGER IF EXISTS anuncios_vendido_at ON public.anuncios;
+CREATE TRIGGER anuncios_vendido_at BEFORE INSERT OR UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_vendido_at();
+SELECT 'v13d listo ✅' AS resultado;

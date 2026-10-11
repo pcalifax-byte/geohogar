@@ -50,6 +50,7 @@
 "END:VEVENT",
 "Enter",
 "Escape",
+"Hi! I am interested in your MapMarket listing:",
 "INSERT",
 "LBL, PERFILES: [",
 "LIMITE",
@@ -97,6 +98,7 @@
 "demo)`:",
 "demo: DEMO,",
 "disabled>Eliminar cuenta definitivamente",
+"eQ absolute -top-2 -right-2 w-7 h-7 rounded-full bg-red-600 text-white",
 "en-US",
 "es-CR",
 "estaciones/paradas de tren reales de OpenStreetMap (GAM).`,calor:",
@@ -104,6 +106,7 @@
 "fOsrm underline opacity-70",
 "id,nombre,lista_items(property_id)",
 "if (set.length",
+"image/*",
 "image/jpeg,image/png,image/webp",
 "km por carretera · ~",
 "lsDel text-red-600 text-xs",
@@ -118,5 +121,6 @@
 "transporte:`",
 "uDatos hidden mt-2 text-xs grid sm:grid-cols-2 gap-x-4 bg-slate-50 dark:bg-slate-900 rounded-lg p-2",
 "znC text-teal-700 dark:text-teal-300 underline",
+"¡Hola! Me interesa tu anuncio en MapMarket:",
 "⏳ prueba hasta ' + d(u.trial_ends_at) + '"
 ]

@@ -17,6 +17,7 @@
 const $=i=>document.getElementById(i),E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let C=null,U=null,convs=[],cur=null,props={},chan=null;const DEMO=location.hash==='#demo';
 const hora=t=>new Date(t).toLocaleString('es-CR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+async function titulos(){const ids=[...new Set(convs.map(c=>c.listing_id).filter(x=>/^u-/.test(x)&&!props[x]).map(x=>x.slice(2)))];if(!ids.length||!C)return;const {data}=await C.from('anuncios').select('id,titulo,imagenes').in('id',ids);(data||[]).forEach(a=>props['u-'+a.id]={title:a.titulo,images:a.imagenes||[]})}
 const title=c=>props[c.listing_id]?.title||('Anuncio '+c.listing_id);
 const otro=c=>c.owner_id==null?(c.user_id===U.id?'MapMarket soporte':'Usuario'):(c.user_id===U.id?'Agente del anuncio':'Interesado');
 const note=t=>{$('note').innerHTML=t;$('note').classList.remove('hidden')};
@@ -51,10 +52,12 @@ $('mReport').onclick=()=>{$('menu').classList.add('hidden');
  if(DEMO){U={id:'yo'};note('👀 Vista de ejemplo con datos ficticios (no se envía nada).');const t=Date.now();convs=[{id:1,listing_id:'anun-54882',user_id:'yo',owner_id:'ag',last_at:new Date(t-6e5).toISOString(),ultimo:'Sí, ¿te sirve el sábado a las 10 a. m.?',unread:1,msgs:[{id:1,sender_id:'yo',texto:'Hola, ¿la casa sigue disponible? Me interesa visitarla este fin de semana.',created_at:new Date(t-36e5).toISOString(),leido:true},{id:2,sender_id:'ag',texto:'¡Hola! Sí, sigue disponible. Tiene escritura al día y plano catastrado.',created_at:new Date(t-3e6).toISOString()},{id:3,sender_id:'ag',texto:'Sí, ¿te sirve el sábado a las 10 a. m.?',created_at:new Date(t-6e5).toISOString()}]},{id:2,listing_id:'32136583',user_id:'yo',owner_id:null,last_at:new Date(t-864e5).toISOString(),ultimo:'Gracias, lo revisamos.',msgs:[{id:4,sender_id:'yo',texto:'Este anuncio parece vendido.',created_at:new Date(t-9e7).toISOString(),leido:true},{id:5,sender_id:'s',texto:'Gracias, lo revisamos.',created_at:new Date(t-864e5).toISOString()}]}];renderList();openConv(1);return}
  U=await Social.me();if(!U){location.href='login.html?next=mensajes.html';return}
  C=await Social.sb();if(!C){note('Los mensajes se activan cuando el administrador ejecute <b>supabase_setup.sql</b> (v4). <a class="underline" href="#demo" onclick="setTimeout(()=>location.reload())">Ver ejemplo</a>');renderList();return}
- const {data,error}=await C.from('conversaciones').select('*').order('last_at',{ascending:false});if(error){note(E(error.message));return}convs=data||[];
+ window.cargarConvs=async()=>{ const {data,error}=await C.from('conversaciones').select('*').order('last_at',{ascending:false});if(error){note(E(error.message));return false}convs=data||[];
  if(convs.length){const ids=convs.map(c=>c.id);const {data:ms}=await C.from('mensajes').select('conversacion_id,texto,sender_id,leido,created_at').in('conversacion_id',ids).order('created_at',{ascending:false}).limit(500);
   (ms||[]).forEach(m=>{const c=convs.find(x=>x.id===m.conversacion_id);if(!c.ultimo)c.ultimo=m.texto;if(!m.leido&&m.sender_id!==U.id)c.unread=(c.unread||0)+1})}
+ await titulos();return true};
+ if(await cargarConvs()===false)return;
  renderList();const q=+new URLSearchParams(location.search).get('c');if(q)openConv(q);
- C.channel('mm-list').on('postgres_changes',{event:'INSERT',schema:'public',table:'mensajes'},p=>{const c=convs.find(x=>x.id===p.new.conversacion_id);if(c){c.ultimo=p.new.texto;c.last_at=p.new.created_at;if(p.new.sender_id!==U.id&&(!cur||cur.id!==c.id))c.unread=(c.unread||0)+1;convs.sort((a,b)=>b.last_at>a.last_at?1:-1);renderList()}}).subscribe();
+ C.channel('mm-list').on('postgres_changes',{event:'INSERT',schema:'public',table:'mensajes'},p=>{const c=convs.find(x=>x.id===p.new.conversacion_id);if(c){c.ultimo=p.new.texto;c.last_at=p.new.created_at;if(p.new.sender_id!==U.id&&(!cur||cur.id!==c.id))c.unread=(c.unread||0)+1;convs.sort((a,b)=>b.last_at>a.last_at?1:-1);renderList()}else cargarConvs().then(renderList)}).subscribe();
 })();
 </script><script src="js/notif.js" defer></script></body></html>

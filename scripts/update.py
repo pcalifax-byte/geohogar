@@ -38,7 +38,7 @@ def save(n, o, compact=False):
 def digest():
     h = hashlib.sha256()
     for n in sorted(os.listdir(os.path.join(ROOT, "data"))):
-        if n != "meta.json": h.update(open(D(n), "rb").read())
+        if n != "meta.json" and os.path.isfile(D(n)): h.update(open(D(n), "rb").read())
     return h.hexdigest()
 
 def http(url, timeout=25):

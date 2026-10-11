@@ -63,7 +63,7 @@
           if (!(await Social.me())) { if (confirm('Para publicar en MapMarket necesitas iniciar sesión. ¿Ir ahora? (Tu borrador queda guardado solo en este navegador si cancelas)')) { location.href = 'login.html?next=index.html'; return } }
           else {
             save.disabled = true; const m = t => $('nErr').textContent = t;
-            try { await enviar(d, files, m); Feat.toast('✅ Enviado a revisión. Te avisaremos cuando esté publicado.') }
+            try { await enviar(d, files, m); Feat.toast('✅ Enviado a revisión. Te avisaremos cuando esté publicado.'); UI.draft = {}; UI.close(); return }
             catch (e) { save.disabled = false; m('❌ ' + (e.message || e)); return }
           }
         }
@@ -71,6 +71,9 @@
       };
     };
   }
+  // Antes, al publicar en el servidor también se guardaba una copia local (id local-…) que solo veía el autor y que nadie podía borrar
+  // desde admin. Se eliminan esas copias una sola vez (las publicaciones reales viven en Supabase).
+  try { if (!localStorage.getItem('mm_local_purga1')) { const k = CONFIG.storageKey, l = JSON.parse(localStorage.getItem(k) || '[]'); if (l.length) localStorage.setItem(k, '[]'); localStorage.setItem('mm_local_purga1', '1'); if (l.length) setTimeout(() => { App.all = App.all.filter(p => !String(p.id).startsWith('local-')); App.refresh() }, 500) } } catch (e) { }
   async function cargarAprobados() {
     const c = await backend(); if (!c) return;
     const { data, error } = await c.from('anuncios').select('*').in('estado', ['aprobado', 'vendido']).order('created_at', { ascending: false }).limit(1000);
@@ -83,5 +86,5 @@
   }
   window.MMcargarAprobados = cargarAprobados;
   window.addEventListener('mm-feat-ready', () => { try { patchPublish() } catch (e) { console.warn(e) } cargarAprobados() });
-  window.Publicar = { cargarAprobados, shrink };
+  window.Publicar = { cargarAprobados, shrink, analizar };
 })();

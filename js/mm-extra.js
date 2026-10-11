@@ -23,8 +23,6 @@
       const f = Filters.state; const { error } = await c.rpc('guardar_zona', { p_nombre: n.slice(0, 80), p_geojson: MMDibujo.toGeo(zona), p_filtros: { type: f.type || null, max: isFinite(f.max) ? f.max : null, beds: f.beds || null } }); if (error) throw error;
       toast('✅ ' + T('Zona guardada. Te avisaremos aquí, por push y por correo.')); if (window.MMNotif && Notification && Notification.permission === 'default' && confirm(T('¿Activar notificaciones push en este dispositivo?'))) MMNotif.suscribir().catch(() => { }) } catch (e) { if (e.message !== 'login') alert(e.message) } };
     // Destacado pagado: añadir al conjunto de destacados
-    const marcar = () => { const s = window.Feat && Feat.Dest && Feat.Dest.set; if (!s) return; (App.all || []).forEach(p => { if (p.destacado_until && new Date(p.destacado_until) > new Date()) s.add(String(p.id)) }) };
-    marcar(); setTimeout(marcar, 3000); setTimeout(() => { marcar(); App.refresh && App.refresh() }, 6000);
     // Botones extra en la ficha
     const sc = UI.showCard.bind(UI);
     UI.showCard = p => { sc(p); try { extraCard(p) } catch (e) { } };
@@ -36,6 +34,14 @@
       if (!mio && p.status === 'activa') B('📅 ' + T('Agendar visita'), () => visita(p, id));
       if (mio) { B('★ ' + T('Destacar 7 días · ₡1.990'), () => destacarPago(id)); B('📊 ' + T('Estadísticas'), () => location.href = 'cuenta.html#stats') }
       const host = card.querySelector('.overflow-y-auto') || card; host.appendChild(box);
+      // Contactar: WhatsApp directo del anunciante (si lo hizo público) o chat interno
+      if (!mio) try { const c = await Auth.client(); const { data: pp } = await c.from('perfiles_publicos').select('telefono,whatsapp').eq('id', p.owner_id).maybeSingle();
+        const tel = pp && pp.telefono ? String(pp.telefono).replace(/\D/g, '') : ''; const num = tel.length === 8 ? '506' + tel : tel;
+        const link = 'https://mapmarketapp.com/index.html?p=' + p.id, msg = (window.MMLang === 'en' ? 'Hi! I am interested in your MapMarket listing: ' : '¡Hola! Me interesa tu anuncio en MapMarket: ') + p.title + ' ' + link;
+        card.querySelectorAll('a[href^="https://wa.me"]').forEach(a => {
+          if (num && pp.whatsapp !== false) { a.href = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg); a.target = '_blank'; a.rel = 'noopener' }
+          else { a.removeAttribute('target'); a.href = '#'; a.onclick = e => { e.preventDefault(); const chat = [...card.querySelectorAll('button')].find(b => /mensaje|message/i.test(b.textContent)); chat ? chat.click() : (location.href = 'mensajes.html') }; a.title = T('El anunciante no comparte WhatsApp: escríbele por el chat de MapMarket'); a.innerHTML = '💬 ' + T('Contactar por chat') }
+        }) } catch (e) { }
     }
     async function visita(p, id) {
       try { await cli() } catch (e) { return }

@@ -309,11 +309,11 @@
       // pines
       const rd = MapController.render.bind(MapController);
       MapController.render = function (list) {
-        list = [...list].sort((a, b) => Dest.set.has(String(a.id)) - Dest.set.has(String(b.id)));
+        const TR = p => window.MMTier ? MMTier(p) : (Dest.set.has(String(p.id)) ? 1 : 0); list = [...list].sort((a, b) => TR(a) - TR(b));
         this.cluster.clearLayers(); this.cluster.addLayers(list.map(p => {
           const st = (p.status && p.status !== 'activa') ? 'off' : p.mine ? 'mine' : p.demo ? 'demo' : '';
-          const cls = [st, 't-' + tclass(p), p.coord !== 'exacta' && !p.demo ? 'ap' : '', Dest.set.has(String(p.id)) ? 'dest' : ''].join(' ');
-          const m = L.marker([p.lat, p.lon], { icon: L.divIcon({ className: '', html: `<span class="pb ${cls}">${Dest.set.has(String(p.id)) ? '★ ' : ''}${DataService.short(p)}</span>`, iconSize: [0, 0] }), zIndexOffset: Dest.set.has(String(p.id)) ? 1000 : 0 });
+          const cls = [st, 't-' + tclass(p), p.coord !== 'exacta' && !p.demo ? 'ap' : '', ['', 'destV', 'dest'][TR(p)]].join(' ');
+          const m = L.marker([p.lat, p.lon], { icon: L.divIcon({ className: '', html: `<span class="pb ${cls}">${TR(p) ? '★ ' : ''}${DataService.short(p)}</span>`, iconSize: [0, 0] }), zIndexOffset: TR(p) * 1000 });
           m.on('click', () => UI.showCard(p)); return m;
         }));
       };

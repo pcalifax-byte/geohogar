@@ -55,7 +55,7 @@
     },
     async resetPassword(email) {
       if (DEMO) return 'Modo demo: no se envía correo de recuperación.';
-      const c = await sbClient(); const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: cb('recovery', 'cuenta.html#nueva-clave') }); if (error) throw error;
+      const c = await sbClient(); const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: cb('recovery', 'cuenta.html#nueva-clave') }); if (error) { if (error.status === 429 || /rate limit|security purposes/i.test(error.message)) throw new Error('Se alcanzó el límite de correos por hora. Espera unos minutos e inténtalo de nuevo.'); if (/invalid/i.test(error.message)) throw new Error('Ese correo no es válido.'); throw error }
       return 'Te enviamos un correo para restablecer la contraseña.';
     },
     async resend(email, tipo) {

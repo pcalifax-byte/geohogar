@@ -4,10 +4,10 @@
     const D = () => (window.Feat && Feat.Dest && Feat.Dest.set) || new Set();
     // Destacados primero (orden estable: respeta el orden por distancia de «Cerca de mí»)
     const fa = Filters.apply.bind(Filters);
-    Filters.apply = list => { const r = fa(list), s = D(); if (!s.size) return r; return r.map((p, i) => [p, i]).sort((a, b) => (s.has(String(b[0].id)) - s.has(String(a[0].id))) || a[1] - b[1]).map(x => x[0]) };
+    Filters.apply = list => { const r = fa(list); return r.map((p, i) => [p, i, window.MMTier ? MMTier(p) : +D().has(String(p.id))]).sort((a, b) => (b[2] - a[2]) || a[1] - b[1]).map(x => x[0]) };
     // Insignia dorada en la ficha
     const sc = UI.showCard.bind(UI);
-    UI.showCard = p => { sc(p); if (!p || !D().has(String(p.id))) return; const h = document.querySelector('#card h2'); if (!h || h.querySelector('.mmGold')) return; const b = document.createElement('span'); b.className = 'mmGold ml-2 align-middle text-[11px] rounded-full px-2 py-0.5 bg-amber-400 text-amber-950 font-bold'; b.textContent = '★ Destacado'; h.appendChild(b) };
+    UI.showCard = p => { const cd0 = document.getElementById('card'); if (cd0) cd0.style.boxShadow = ''; sc(p); const t = window.MMTier ? MMTier(p) : +D().has(String(p && p.id)); if (!p || !t) return; const h = document.querySelector('#card h2'); if (!h || h.querySelector('.mmGold')) return; const b = document.createElement('span'); b.className = 'mmGold ml-2 align-middle text-[11px] rounded-full px-2 py-0.5 font-bold ' + (t === 2 ? 'bg-amber-400 text-amber-950' : 'bg-green-600 text-white'); b.textContent = t === 2 ? '★ ' + (window.MMT ? MMT('Destacado premium') : 'Destacado premium') : '★ ' + (window.MMT ? MMT('Destacado Pro') : 'Destacado Pro'); h.appendChild(b); const card = document.getElementById('card'); if (card) card.style.boxShadow = t === 2 ? '0 0 0 3px #f59e0b' : '0 0 0 3px #16a34a' };
     // Mensaje claro cuando el servidor rechaza por límite de anuncios
     window.addEventListener('unhandledrejection', e => { const m = String(e.reason && e.reason.message || ''); if (m.includes('LIMITE_ANUNCIOS')) { e.preventDefault(); Plus.upsell('Más anuncios activos') } });
     // CTA de primera visita
