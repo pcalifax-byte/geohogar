@@ -443,10 +443,10 @@ const Chat={kb:null,
   this.bot(esc(this.kb.fallback));this.chips(this.kb.chips)}
 };
 async function loadData(){const g=n=>fetch(CONFIG.dataBase+n+'?v='+Date.now().toString().slice(0,-5)).then(r=>{if(!r.ok)throw new Error(n);return r.json()});
- const [props,capas,fx,tasas,mercado,meta]=await Promise.all(['propiedades.json','capas.json','tipo_cambio.json','tasas.json','mercado.json','meta.json'].map(g));REMATES={items:[],fuentes:{}};window.loadRemates=()=>window._remP||(window._remP=g('remates.json').then(r=>{Object.assign(REMATES,r);if(Remates.on.remate||Remates.on.adjudicado)Remates.render(MapController.map)}).catch(()=>{window._remP=null}));(window.requestIdleCallback||setTimeout)(()=>loadRemates(),3000)
+ const [props,capas,fx,tasas,mercado,meta]=await Promise.all(['propiedades.json','capas.json','tipo_cambio.json','tasas.json','mercado.json','meta.json'].map(g));REMATES={items:[],fuentes:{}};window.loadRemates=()=>window._remP||(window._remP=g('remates.json').then(r=>{Object.assign(REMATES,r);if(Remates.on.remate||Remates.on.adjudicado)Remates.render(MapController.map)}).catch(()=>{window._remP=null}));setTimeout(()=>loadRemates(),3000)
  EMBED={properties:props,provinces:capas.provinces,medians:capas.medians,pois:capas.pois,builtAt:new Date(meta.last_updated).toLocaleDateString('es-CR',{day:'numeric',month:'short',year:'numeric'})};
  FX=fx;TASAS=tasas;MERCADO=mercado;META=meta;CONFIG.USD_CRC=fx.referencia||fx.venta||455;
  $('fxLbl').textContent=`₡→$ 1 USD ≈ ${CONFIG.USD_CRC} CRC (BCCR compra ${fx.compra} / venta ${fx.venta}, ${fx.fecha})`;
  $('upd').textContent='Actualizado: '+new Date(meta.last_updated).toLocaleString('es-CR',{dateStyle:'medium',timeStyle:'short'})}
-window.addEventListener('DOMContentLoaded',async()=>{try{await loadData()}catch(e){alert('No se pudieron cargar los datos: '+e.message);return}App.init();Chat.init();Plus.init().then(()=>Feat.init())});
+window.addEventListener('DOMContentLoaded',async()=>{try{await loadData()}catch(e){console.error('loadData',e);alert('No se pudieron cargar los datos: '+e.message);return}App.init();Chat.init();Plus.init().then(()=>Feat.init())});
 </script></body></html>
