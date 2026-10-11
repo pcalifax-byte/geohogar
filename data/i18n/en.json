@@ -1572,5 +1572,17 @@
 "🧮 Calculadora y comparador de bancos": "🧮 Calculator and bank comparison",
 "🧾 Auditoría": "🧾 Audit log",
 "🧾 Historial de pagos": "🧾 Payment history",
-"🧾 Pide todo por escrito y verifica la identidad del vendedor y poderes si actúa un apoderado.": "🧾 Get everything in writing and verify the seller's identity, and the power of attorney if an agent acts for them."
+"🧾 Pide todo por escrito y verifica la identidad del vendedor y poderes si actúa un apoderado.": "🧾 Get everything in writing and verify the seller's identity, and the power of attorney if an agent acts for them.",
+"Precios históricos (fuentes oficiales)": "Historical prices (official sources)",
+"Valor fiscal de terreno por zonas homogéneas (ONT, Ministerio de Hacienda). Es un valor de referencia para el impuesto de bienes inmuebles, no un precio de venta.": "Official land value by homogeneous zones (ONT, Ministry of Finance). It is a reference value for property tax, not a sale price.",
+"Edición": "Edition",
+"Mediana urbana": "Urban median",
+"Rango p25–p75": "p25–p75 range",
+"Mediana rural": "Rural median",
+"Variación anual promedio (mediana urbana, nominal)": "Average annual change (urban median, nominal)",
+"Solo hay una edición publicada con matriz legible: sin tendencia histórica todavía.": "Only one published edition with a readable table: no historical trend yet.",
+"Sin datos ONT legibles para este cantón (mapa no publicado o escaneado).": "No readable ONT data for this canton (map not published or scanned).",
+"Área con permiso de construcción en la provincia": "Permitted construction area in the province",
+"Fuentes": "Sources",
+"Informativo: no forma parte del puntaje.": "For information only: not part of the score."
 }

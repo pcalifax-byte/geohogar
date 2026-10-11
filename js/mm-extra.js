@@ -64,7 +64,7 @@
 
   // ───────── cuenta.html: visitas, estadísticas, correo de respaldo ─────────
   async function cuenta() {
-    const main = document.querySelector('main') || document.body; if (!/cuenta\.html/.test(location.pathname) || !window.Auth || Auth.demo) return;
+    if (!/cuenta\.html/.test(location.pathname) || !window.Auth || Auth.demo || document.getElementById('mmCuentaExtra')) return; const mm = document.querySelector('main') || document.body; const main = document.createElement('div'); main.id = 'mmCuentaExtra'; main.className = 'max-w-3xl mx-auto px-4 pb-4'; mm === document.body ? document.body.appendChild(main) : mm.after(main);
     const u = await Auth.user(); if (!u) return; const c = await Auth.client();
     const sec = (id, h) => { const s = document.createElement('section'); s.id = id; s.className = 'bg-white dark:bg-slate-800 rounded-2xl shadow p-4 mt-4'; s.innerHTML = h; main.appendChild(s); return s };
     // Visitas

@@ -5,7 +5,7 @@
   const st = document.createElement('style');
   st.textContent = `.pb.destV{border-color:#16a34a!important;border-width:2.5px;box-shadow:0 0 0 3px #16a34a55,0 2px 6px #0008;font-weight:800}
   .pb.dest{background:#f59e0b!important;color:#422006!important;border-color:#fff7d6!important;box-shadow:0 0 0 3px #f59e0b77,0 2px 6px #0008}
-  #mmTierLeg{position:fixed;left:8px;bottom:84px;z-index:500;font:12px system-ui,sans-serif}`;
+  #mmTierLeg{position:fixed;left:200px;bottom:32px;z-index:500;font:12px system-ui,sans-serif;flex-wrap:wrap;max-width:calc(100vw - 280px)}@media(max-width:767px){#mmTierLeg{left:118px;bottom:96px;max-width:calc(100vw - 130px);row-gap:0}}`;
   document.head.appendChild(st);
   window.addEventListener('mm-feat-ready', () => {
     const d = document.createElement('div'); d.id = 'mmTierLeg'; d.className = 'rounded-xl shadow px-2 py-1 bg-white/95 dark:bg-slate-800/95 dark:text-white flex gap-2 items-center';
