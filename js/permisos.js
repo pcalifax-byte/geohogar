@@ -4,8 +4,8 @@
   const D = { favoritos: { gratis: [1, 10], plus: [1, null], pro: [1, null], agente: [1, 10], admin: [1, null] }, listas: { gratis: [1, 2], plus: [1, null], pro: [1, null], agente: [1, 2], admin: [1, null] },
     anuncios_activos: { gratis: [1, 1], plus: [1, 3], pro: [1, 5], agente: [1, 1], admin: [1, null] },
     busquedas_guardadas: { plus: [1], pro: [1], admin: [1] }, alertas: { plus: [1], pro: [1], admin: [1] }, exportar_reportes: { plus: [1], pro: [1], admin: [1] }, filtros_avanzados: { plus: [1], pro: [1], admin: [1] },
-    destacar: { pro: [1], admin: [1] }, capa_privada: { admin: [1] }, moderacion: { admin: [1] } };
-  const LBL = { favoritos: 'Favoritos', anuncios_activos: 'Anuncios activos', listas: 'Listas de favoritos', busquedas_guardadas: 'Búsquedas guardadas', alertas: 'Alertas (precio y zona)', exportar_reportes: 'Exportar reportes', filtros_avanzados: 'Filtros avanzados', destacar: 'Destacar anuncios', capa_privada: 'Capa privada (datos admin)', moderacion: 'Moderación' };
+    destacar: { pro: [1], admin: [1] }, plusvalia: { plus: [1], pro: [1], admin: [1] }, capa_privada: { admin: [1] }, moderacion: { admin: [1] } };
+  const LBL = { plusvalia: 'Capa Plusvalía / Inversión', favoritos: 'Favoritos', anuncios_activos: 'Anuncios activos', listas: 'Listas de favoritos', busquedas_guardadas: 'Búsquedas guardadas', alertas: 'Alertas (precio y zona)', exportar_reportes: 'Exportar reportes', filtros_avanzados: 'Filtros avanzados', destacar: 'Destacar anuncios', capa_privada: 'Capa privada (datos admin)', moderacion: 'Moderación' };
   const P = window.Perm = {
     LBL, PERFILES: ['gratis', 'plus', 'pro', 'agente', 'admin'], m: null,
     tabla() { if (this.m) return this.m; const m = {}; for (const f in D) { m[f] = {}; for (const p of this.PERFILES) { const v = D[f][p]; m[f][p] = { activo: !!v, limite: v ? (v[1] ?? null) : null, bloqueado: f === 'capa_privada' || f === 'moderacion' } } } return m },

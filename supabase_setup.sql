@@ -1683,3 +1683,6 @@ BEGIN IF NEW.estado = 'vendido' AND (TG_OP = 'INSERT' OR OLD.estado IS DISTINCT 
 DROP TRIGGER IF EXISTS anuncios_vendido_at ON public.anuncios;
 CREATE TRIGGER anuncios_vendido_at BEFORE INSERT OR UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_vendido_at();
 SELECT 'v13d listo ✅' AS resultado;
+-- v14 · capa Plusvalía / Inversión (por defecto Plus, Pro y Admin)
+INSERT INTO public.permisos(perfil,feature,activo,limite,bloqueado) VALUES ('gratis','plusvalia',false,null,false),('plus','plusvalia',true,null,false),('pro','plusvalia',true,null,false),('agente','plusvalia',false,null,false),('admin','plusvalia',true,null,false) ON CONFLICT DO NOTHING;
+SELECT 'v14 listo ✅' AS resultado;
