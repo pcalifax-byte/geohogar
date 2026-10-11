@@ -1635,5 +1635,7 @@
 "Propiedades publicadas": "Listed properties",
 "Sin propiedades activas.": "No active listings.",
 "Perfil del anunciante": "Seller profile",
-"Mapa": "Map"
+"Mapa": "Map",
+"precio mediano": "median price",
+"Precio (parece incorrecto: revisa la moneda y los ceros)": "Price (looks wrong: check the currency and zeros)"
 }

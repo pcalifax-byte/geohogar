@@ -67,7 +67,7 @@
       const prev = save.onclick;
       save.onclick = async e => {
         const v = id => ($(id) ? $(id).value.trim() : ''), tipo = v('nY'), lote = /Lote|Finca/i.test(tipo), err = [];
-        if (!v('nT')) err.push(T('Título')); if (!(+v('nP') > 0)) err.push(T('Precio'));
+        if (!v('nT')) err.push(T('Título')); if (!(+v('nP') > 0)) err.push(T('Precio')); else if ((v('nC') === 'CRC' ? +v('nP') / 500 : +v('nP')) > 20e6) err.push(T('Precio (parece incorrecto: revisa la moneda y los ceros)'));
         if (!lote && !(+v('nB') >= 0 && v('nB') !== '')) err.push(T('Habitaciones')); if (!lote && v('nBa') === '') err.push(T('Baños'));
         if (!(+v('nA') > 0)) err.push(T('Área m²')); if (!v('nL')) err.push(T('Zona / cantón')); if (v('nD').length < 40) err.push(T('Descripción (mín. 40 caracteres)'));
         if (!(UI.draft && UI.draft.lat)) err.push(T('Ubicación en el mapa'));
@@ -97,8 +97,8 @@
     if (typeof App === 'undefined' || typeof MapController === 'undefined' || !MapController.map) return;
     let el = $('mmStats'); if (!el) { el = document.createElement('div'); el.id = 'mmStats'; el.setAttribute('aria-live', 'polite'); document.body.appendChild(el) }
     const b = MapController.map.getBounds(), L = (App.visible || []).filter(p => p.lat && b.contains([p.lat, p.lon])), pr = L.filter(p => p.price > 0).map(usd);
-    const avg = pr.length ? pr.reduce((a, x) => a + x, 0) / pr.length : 0, zona = typeof Filters !== 'undefined' && Filters.state && Filters.state.polygon;
-    el.textContent = `${zona ? '✏️ ' + T('En la zona') : '🗺️ ' + T('En esta vista')}: ${L.length.toLocaleString(LOC())} ${L.length === 1 ? T('propiedad') : T('propiedades')}${avg ? ' · ' + T('promedio') + ' $' + Math.round(avg).toLocaleString(LOC()) : ''}`;
+    pr.sort((a, b) => a - b); const avg = pr.length ? (pr.length % 2 ? pr[(pr.length - 1) / 2] : (pr[pr.length / 2 - 1] + pr[pr.length / 2]) / 2) : 0, zona = typeof Filters !== 'undefined' && Filters.state && Filters.state.polygon;
+    el.textContent = `${zona ? '✏️ ' + T('En la zona') : '🗺️ ' + T('En esta vista')}: ${L.length.toLocaleString(LOC())} ${L.length === 1 ? T('propiedad') : T('propiedades')}${avg ? ' · ' + T('precio mediano') + ' $' + Math.round(avg).toLocaleString(LOC()) : ''}`;
   }
   function hookMapa() {
     if (typeof App === 'undefined' || typeof MapController === 'undefined' || !MapController.map || App._mmS) return false; App._mmS = 1;
