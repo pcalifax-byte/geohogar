@@ -29,4 +29,4 @@ $('fr').onsubmit=async e=>{e.preventDefault();const row={listing_ref:$('rl').val
  const say=(t,ok)=>{$('rmsg').textContent=t;$('rmsg').className='text-sm '+(ok?'text-emerald-600':'text-red-600')};
  try{if(Auth.demo)throw new Error('demo');const c=await Auth.client();const {error}=await c.from('retiros').insert(row);if(error)throw error;say('✅ Recibimos tu solicitud. Te escribiremos a '+row.email+' en máximo 5 días hábiles.',true);e.target.reset()}
  catch(err){say(/Demasiadas/.test(err.message||'')?err.message:'No se pudo enviar en línea. Escríbenos a pcalifax@gmail.com con el ID del anuncio.',false);location.href='mailto:pcalifax@gmail.com?subject='+encodeURIComponent('Solicitud de retiro '+row.listing_ref)+'&body='+encodeURIComponent(row.motivo)}};
-</script></body></html>
+</script><script src="js/notif.js" defer></script></body></html>

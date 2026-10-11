@@ -16,4 +16,4 @@ const A=[
 ['ofertas','🤝','Consejos para negociar y evitar estafas',`<ul class="list-disc ml-5 space-y-1"><li>Compara el precio con la <b>mediana de la zona</b> (📊 Datos de zona en el mapa).</li><li>Nunca pagues depósitos a cuentas personales sin contrato ni verificación del dueño registral.</li><li>Desconfía de precios muy por debajo del mercado o presión por pagar rápido.</li><li>Visita la propiedad, habla con vecinos y revisa la zona de noche.</li><li>Reporta anuncios sospechosos con 🚩 Reportar en la ficha.</li></ul>`]];
 document.getElementById('idx').innerHTML=A.map(a=>`<a href="#${a[0]}" class="bg-white dark:bg-slate-800 rounded-full px-3 py-1.5 shadow text-sm">${a[1]} ${a[2]}</a>`).join('');
 document.getElementById('arts').innerHTML=A.map(a=>`<article id="${a[0]}" class="bg-white dark:bg-slate-800 rounded-2xl shadow p-5 scroll-mt-20"><h2 class="text-xl font-bold">${a[1]} ${a[2]}</h2><div class="text-sm mt-3 leading-relaxed">${a[3]}</div></article>`).join('');
-</script></body></html>
+</script><script src="js/notif.js" defer></script></body></html>

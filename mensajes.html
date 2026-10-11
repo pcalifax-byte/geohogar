@@ -57,4 +57,4 @@ $('mReport').onclick=()=>{$('menu').classList.add('hidden');
  renderList();const q=+new URLSearchParams(location.search).get('c');if(q)openConv(q);
  C.channel('mm-list').on('postgres_changes',{event:'INSERT',schema:'public',table:'mensajes'},p=>{const c=convs.find(x=>x.id===p.new.conversacion_id);if(c){c.ultimo=p.new.texto;c.last_at=p.new.created_at;if(p.new.sender_id!==U.id&&(!cur||cur.id!==c.id))c.unread=(c.unread||0)+1;convs.sort((a,b)=>b.last_at>a.last_at?1:-1);renderList()}}).subscribe();
 })();
-</script></body></html>
+</script><script src="js/notif.js" defer></script></body></html>

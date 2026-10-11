@@ -55,4 +55,4 @@ $('cta').onclick=cta;$('cta2').onclick=cta;$('subP').onclick=()=>sub(per);$('sub
 Auth.user().then(u=>{const go=qs.get('elegir');if(u&&go&&['mensual','anual','pro'].includes(go)){sub(go)}else if(u&&go==='prueba'&&!u.trial_used&&!u.pagado){cta()}
  if(u){$('acct').textContent=(u.nivel==='pro'?'💎 ':u.plan==='plus'?'⭐ ':'')+u.nombre;$('acct').href='cuenta.html';if(u.nivel==='pro'){$('subR').textContent='Tienes Pro ✓ — ver mi cuenta';$('subR').onclick=()=>location.href='cuenta.html'}
   if(u.pagado){$('cta').textContent='Ya tienes un plan pagado ✓ — ver mi cuenta'}else if(u.trial_activo){$('cta').textContent='Prueba activa ✓';$('cta').disabled=true;$('trialBadge').textContent='⏳ '+Auth.pruebaTexto(u);$('trialBadge').classList.remove('hidden')}else if(u.trial_used){$('cta').textContent='Prueba ya utilizada';$('cta').disabled=true;$('cta').classList.add('opacity-60');$('cta2').textContent='Suscribirme a Plus';$('cta2').onclick=()=>sub(per)}}});Auth.banner();
-</script></body></html>
+</script><script src="js/notif.js" defer></script></body></html>

@@ -29,6 +29,14 @@ async function procesar(ev: any) {
   if (type === "checkout-session.succeeded") {
     const s = await onvo("GET", `/checkout/sessions/${d.id}`);            // confirmar contra la API
     if (s.paymentStatus !== "paid" || s.metadata?.app !== "mapmarket") return;
+    if (s.metadata?.tipo === "destacado") {
+      const id = s.metadata?.anuncio; const dias = Math.min(30, Math.max(1, +(s.metadata?.dias ?? 7)));
+      const { data: a } = await db.from("anuncios").select("destacado_until").eq("id", id).maybeSingle();
+      const base = a?.destacado_until && new Date(a.destacado_until) > new Date() ? new Date(a.destacado_until) : new Date();
+      await db.from("anuncios").update({ destacado_until: new Date(base.getTime() + dias * 864e5).toISOString() }).eq("id", id);
+      await db.from("pagos_destacado").update({ estado: "pagado", pagado_at: new Date().toISOString() }).eq("sesion", d.id);
+      return;
+    }
     const plan = s.metadata?.plan === "anual" ? "anual" : s.metadata?.plan === "pro" ? "pro" : "mensual";
     const p = await perfilPor({ id: s.metadata?.supabase_user_id, email: s.metadata?.email ?? s.customerEmail });
     if (!p) return console.warn("perfil no encontrado", s.id);

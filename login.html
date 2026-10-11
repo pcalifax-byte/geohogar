@@ -62,4 +62,4 @@ $('f').onsubmit=async e=>{e.preventDefault();const em=$('email').value.trim(),pw
 $('magic').onclick=async()=>{const em=$('email').value.trim();localStorage.setItem('mm_ultimo_email',em);if(!em)return say('Escribe tu correo primero.');try{const r=await Auth.magicLink(em);Auth.demo?done('ok'):say(r,true)}catch(x){say(x.message)}};
 $('forgot').onclick=async()=>{const em=$('email').value.trim();if(!em)return say('Escribe tu correo y vuelve a tocar «¿Olvidaste tu contraseña?».');try{say(await Auth.resetPassword(em),true)}catch(x){say(x.message)}};
 Auth.user().then(u=>{if(u)say('Ya iniciaste sesión como '+u.email+'. Puedes volver al mapa.',true)});
-</script></body></html>
+</script><script src="js/notif.js" defer></script></body></html>

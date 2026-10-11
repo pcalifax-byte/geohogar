@@ -203,6 +203,17 @@
         <figcaption class="mt-1"><b>🚩 ${x.n}</b> · ${E(x.img_estado || 'sin moderación')}<div class="opacity-70">${E((x.motivos || []).join(', '))} · ${d(x.ultimo)}</div><div class="flex flex-wrap gap-1 mt-1">${btn('ver', '👁️')}${btn('aprobar', '✅')}${btn('rechazar', '⛔')}${btn('eliminar', '🗑️')}${x.owner_id ? btn('banear', '🚫 Ban') : ''}${FR.e === 'abierto' ? btn('descartado', '✖') : btn('reabrir', '↩')}</div></figcaption></figure>`).join('') || '<p class="opacity-70">Sin fotos reportadas.</p>'}</div>`
   }];
 
+  // ---------- Métricas ----------
+  T.metricas = ['📈 Métricas', async () => {
+    const m = await rpc('admin_metricas', {}); const n = v => Number(v || 0).toLocaleString(window.MMLocale || 'es-CR');
+    const K = (t, v, s = '') => `<div class="bg-white dark:bg-slate-800 rounded-xl shadow p-3"><div class="text-xs opacity-70">${t}</div><div class="text-2xl font-extrabold">${v}</div>${s ? `<div class="text-[11px] opacity-60">${s}</div>` : ''}</div>`;
+    const alt = m.altas_dia || [], mx = Math.max(1, ...alt.map(x => x.n)); const pl = m.planes || {}, an = m.anuncios || {};
+    return `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${K('Usuarios', n(m.usuarios), `${n(m.activos_7d)} activos 7 d · ${n(m.activos_30d)} 30 d`)}${K('MRR estimado', '₡' + n(m.mrr_crc), `${n(m.pagos_onvo)} suscripciones ONVO activas`)}${K('Conversión a pago', (m.conversion_pct ?? 0) + ' %', 'gratis → pago (ONVO)')}${K('Destacados pagados 30 d', '₡' + n(m.destacados_pagados_30d))}
+      ${K('Planes', `${n(pl.plus)} Plus · ${n(pl.pro)} Pro`, `${n(pl.prueba)} en prueba · ${n(pl.free)} gratis`)}${K('Anuncios', n(Object.values(an).reduce((a, b) => a + b, 0)), Object.entries(an).map(([k, v]) => k + ' ' + v).join(' · '))}${K('Pendientes de moderar', `${n(m.reportes_abiertos)} 🚩 · ${n(m.retiros_pendientes)} 📰 · ${n(m.imagenes_pendientes)} 🖼️`)}${K('Actividad 7 d', `${n(m.vistas_7d)} 👁️`, `${n(m.mensajes_7d)} mensajes · ${n(m.visitas_30d)} visitas (30 d) · ${n(m.zonas_guardadas)} zonas · ${n(m.push_subs)} push`)}</div>
+      <h3 class="font-bold mt-4">Altas por día (30 días)</h3><svg viewBox="0 0 310 80" class="w-full h-24 bg-white dark:bg-slate-800 rounded-xl" role="img" aria-label="Altas por día">${alt.map((x, i) => { const h = Math.round(x.n / mx * 64); return `<rect x="${i * 10 + 4}" y="${74 - h}" width="8" height="${h}" class="fill-teal-500"><title>${x.d}: ${x.n}</title></rect>` }).join('')}</svg>
+      <p class="text-xs opacity-70 mt-2">Eventos de pago (30 d): ${Object.entries(m.pagos_eventos_30d || {}).map(([k, v]) => E(k) + ' ' + v).join(' · ') || '—'}. El MRR es una estimación con precios de lista (Plus mensual/anual prorrateado, Pro) de suscripciones ONVO activas no canceladas.</p>`
+  }];
+
   }
   // Acciones de anuncios compartidas (panel y ficha del mapa)
   window.Admin = {

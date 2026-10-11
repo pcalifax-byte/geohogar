@@ -1385,3 +1385,273 @@ DO $$ DECLARE f TEXT; BEGIN FOREACH f IN ARRAY ARRAY['admin_reportes(BIGINT[],TE
   EXECUTE 'REVOKE ALL ON FUNCTION public.'||f||' FROM PUBLIC, anon'; EXECUTE 'GRANT EXECUTE ON FUNCTION public.'||f||' TO authenticated'; END LOOP; END $$;
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v12 (reportes) listo ✅' AS resultado;
+
+-- ═════════ v13 · Notificaciones (in-app + push + correo), zonas guardadas, visitas, estadísticas, destacado pagado, métricas ═════════
+CREATE TABLE IF NOT EXISTS public.app_config (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.app_config FROM anon, authenticated;
+
+CREATE TABLE IF NOT EXISTS public.notificaciones (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL,
+  titulo TEXT NOT NULL CHECK (char_length(titulo) <= 160),
+  cuerpo TEXT CHECK (char_length(cuerpo) <= 500),
+  url TEXT CHECK (char_length(url) <= 300),
+  datos JSONB,
+  leida BOOLEAN NOT NULL DEFAULT FALSE,
+  correo_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS notif_user_idx ON public.notificaciones (user_id, leida, created_at DESC);
+ALTER TABLE public.notificaciones ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.notificaciones FROM anon; REVOKE INSERT, DELETE ON public.notificaciones FROM authenticated;
+GRANT SELECT, UPDATE (leida) ON public.notificaciones TO authenticated;
+DROP POLICY IF EXISTS "notif propias" ON public.notificaciones;
+CREATE POLICY "notif propias" ON public.notificaciones FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "notif marcar" ON public.notificaciones;
+CREATE POLICY "notif marcar" ON public.notificaciones FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.notificaciones; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.push_subs (
+  endpoint TEXT PRIMARY KEY CHECK (char_length(endpoint) <= 600),
+  user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  p256dh TEXT NOT NULL, auth TEXT NOT NULL, ua TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.push_subs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.push_subs FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.push_subs TO authenticated;
+DROP POLICY IF EXISTS "push propias" ON public.push_subs;
+CREATE POLICY "push propias" ON public.push_subs FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notif_correo BOOLEAN NOT NULL DEFAULT TRUE;
+GRANT UPDATE (notif_correo) ON public.profiles TO authenticated;
+
+-- Crea una notificación y dispara el envío push (pg_net → edge function push-enviar)
+CREATE OR REPLACE FUNCTION public.notificar(uid UUID, p_tipo TEXT, p_titulo TEXT, p_cuerpo TEXT DEFAULT NULL, p_url TEXT DEFAULT NULL, p_datos JSONB DEFAULT NULL) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE nid BIGINT; sec TEXT; base TEXT;
+BEGIN
+  IF uid IS NULL THEN RETURN NULL; END IF;
+  -- evita duplicados idénticos en 1 hora
+  IF EXISTS (SELECT 1 FROM notificaciones WHERE user_id = uid AND tipo = p_tipo AND titulo = p_titulo AND COALESCE(url,'') = COALESCE(p_url,'') AND created_at > now() - interval '1 hour') THEN RETURN NULL; END IF;
+  INSERT INTO notificaciones(user_id, tipo, titulo, cuerpo, url, datos) VALUES (uid, p_tipo, p_titulo, p_cuerpo, p_url, p_datos) RETURNING id INTO nid;
+  SELECT v INTO sec FROM app_config WHERE k = 'push_secret'; SELECT v INTO base FROM app_config WHERE k = 'functions_url';
+  IF sec IS NOT NULL AND base IS NOT NULL AND EXISTS (SELECT 1 FROM push_subs WHERE user_id = uid) THEN
+    BEGIN PERFORM net.http_post(base || '/push-enviar', jsonb_build_object('id', nid), '{}'::jsonb, jsonb_build_object('x-push-secret', sec, 'Content-Type', 'application/json'));
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+  END IF;
+  RETURN nid;
+END $$;
+REVOKE ALL ON FUNCTION public.notificar(UUID,TEXT,TEXT,TEXT,TEXT,JSONB) FROM PUBLIC, anon, authenticated;
+
+-- Mensaje nuevo → notifica al otro participante
+CREATE OR REPLACE FUNCTION public.trg_notif_mensaje() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE c RECORD; dest UUID;
+BEGIN
+  SELECT * INTO c FROM conversaciones WHERE id = NEW.conversacion_id;
+  dest := CASE WHEN NEW.sender_id = c.user_id THEN c.owner_id ELSE c.user_id END;
+  IF dest IS NOT NULL AND dest <> NEW.sender_id THEN
+    PERFORM notificar(dest, 'mensaje', '💬 Nuevo mensaje', left(NEW.texto, 140), 'mensajes.html?c=' || c.id, jsonb_build_object('conv', c.id));
+  END IF; RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS notif_mensaje ON public.mensajes;
+CREATE TRIGGER notif_mensaje AFTER INSERT ON public.mensajes FOR EACH ROW EXECUTE FUNCTION public.trg_notif_mensaje();
+
+-- Zonas guardadas: avisar a quien tenga una zona que contiene el anuncio
+CREATE OR REPLACE FUNCTION public.notificar_zonas(a public.anuncios, p_tipo TEXT, p_titulo TEXT) RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE b RECORD; n INT := 0;
+BEGIN
+  FOR b IN SELECT DISTINCT ON (user_id) id, user_id, nombre FROM busquedas_guardadas
+    WHERE alerta AND zona IS NOT NULL AND user_id <> a.owner_id
+      AND extensions.ST_Covers(zona, extensions.ST_SetSRID(extensions.ST_MakePoint(a.lon, a.lat), 4326)::extensions.geography)
+  LOOP
+    PERFORM notificar(b.user_id, p_tipo, p_titulo, a.titulo || ' · ' || CASE WHEN a.moneda='CRC' THEN '₡' ELSE '$' END || to_char(a.precio, 'FM999G999G999G999'), 'index.html?p=u-' || a.id, jsonb_build_object('zona', b.id, 'zona_nombre', b.nombre, 'anuncio', a.id));
+    n := n + 1;
+  END LOOP; RETURN n;
+END $$;
+REVOKE ALL ON FUNCTION public.notificar_zonas(public.anuncios,TEXT,TEXT) FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE public.anuncios ADD COLUMN IF NOT EXISTS destacado_until TIMESTAMPTZ;
+CREATE OR REPLACE FUNCTION public.trg_notif_anuncio() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.estado IS DISTINCT FROM OLD.estado THEN
+    IF NEW.estado = 'aprobado' THEN
+      PERFORM notificar(NEW.owner_id, 'anuncio_aprobado', '✅ Tu anuncio fue aprobado', NEW.titulo, 'index.html?p=u-' || NEW.id);
+      PERFORM notificar_zonas(NEW, 'zona_nuevo', '🏠 Nueva propiedad en tu zona');
+    ELSIF NEW.estado = 'rechazado' THEN
+      PERFORM notificar(NEW.owner_id, 'anuncio_rechazado', '⛔ Tu anuncio fue rechazado', NEW.titulo || COALESCE(' · ' || NEW.motivo_rechazo, ''), 'cuenta.html');
+    END IF;
+  ELSIF TG_OP = 'UPDATE' AND NEW.estado = 'aprobado' THEN
+    IF NEW.precio < OLD.precio AND NEW.moneda = OLD.moneda THEN
+      PERFORM notificar_zonas(NEW, 'zona_rebaja', '⬇️ Bajó de precio en tu zona');
+      INSERT INTO precio_historial_anuncios(anuncio_id, precio, moneda) VALUES (NEW.id, OLD.precio, OLD.moneda) ON CONFLICT DO NOTHING;
+    END IF;
+    IF NEW.destacado_until IS NOT NULL AND NEW.destacado_until > now() AND (OLD.destacado_until IS NULL OR OLD.destacado_until < now()) THEN
+      PERFORM notificar_zonas(NEW, 'zona_destacado', '★ Propiedad destacada en tu zona');
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TABLE IF NOT EXISTS public.precio_historial_anuncios (anuncio_id UUID REFERENCES public.anuncios(id) ON DELETE CASCADE, precio NUMERIC NOT NULL, moneda TEXT NOT NULL, hasta TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (anuncio_id, hasta));
+ALTER TABLE public.precio_historial_anuncios ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.precio_historial_anuncios TO anon, authenticated;
+DROP POLICY IF EXISTS "historial publico" ON public.precio_historial_anuncios;
+CREATE POLICY "historial publico" ON public.precio_historial_anuncios FOR SELECT USING (true);
+DROP TRIGGER IF EXISTS notif_anuncio ON public.anuncios;
+CREATE TRIGGER notif_anuncio AFTER UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.trg_notif_anuncio();
+-- destacado manual Pro (tabla destacadas) también avisa a zonas
+CREATE OR REPLACE FUNCTION public.trg_notif_destacada() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE a anuncios;
+BEGIN
+  SELECT * INTO a FROM anuncios WHERE 'u-' || id = NEW.property_id AND estado = 'aprobado';
+  IF FOUND THEN PERFORM notificar_zonas(a, 'zona_destacado', '★ Propiedad destacada en tu zona'); END IF; RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS notif_destacada ON public.destacadas;
+CREATE TRIGGER notif_destacada AFTER INSERT ON public.destacadas FOR EACH ROW EXECUTE FUNCTION public.trg_notif_destacada();
+
+-- Guardar zona dibujada desde el mapa (GeoJSON Polygon) con alerta
+CREATE OR REPLACE FUNCTION public.guardar_zona(p_nombre TEXT, p_geojson JSONB, p_filtros JSONB DEFAULT '{}') RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE nid BIGINT; g extensions.geography;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Inicia sesión'; END IF;
+  IF COALESCE(btrim(p_nombre),'') = '' OR char_length(p_nombre) > 80 THEN RAISE EXCEPTION 'Nombre inválido'; END IF;
+  g := extensions.ST_MakeValid(extensions.ST_SetSRID(extensions.ST_GeomFromGeoJSON(p_geojson::text), 4326))::extensions.geography;
+  IF extensions.ST_GeometryType(g::extensions.geometry) <> 'ST_Polygon' THEN g := extensions.ST_ConvexHull(g::extensions.geometry)::extensions.geography; END IF;
+  INSERT INTO busquedas_guardadas(user_id, nombre, filtros, zona, alerta) VALUES (auth.uid(), p_nombre, COALESCE(p_filtros,'{}'), g, TRUE) RETURNING id INTO nid;
+  RETURN nid;
+END $$;
+REVOKE ALL ON FUNCTION public.guardar_zona(TEXT,JSONB,JSONB) FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.guardar_zona(TEXT,JSONB,JSONB) TO authenticated;
+
+-- Visitas
+CREATE TABLE IF NOT EXISTS public.visitas (
+  id BIGSERIAL PRIMARY KEY,
+  anuncio_id UUID NOT NULL REFERENCES public.anuncios(id) ON DELETE CASCADE,
+  solicitante UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  inicio TIMESTAMPTZ NOT NULL,
+  duracion_min INT NOT NULL DEFAULT 45 CHECK (duracion_min BETWEEN 15 AND 240),
+  estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','confirmada','rechazada','cancelada')),
+  nota TEXT CHECK (char_length(nota) <= 300),
+  recordado BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS visitas_owner_idx ON public.visitas (owner_id, inicio); CREATE INDEX IF NOT EXISTS visitas_sol_idx ON public.visitas (solicitante, inicio);
+ALTER TABLE public.visitas ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.visitas FROM anon, authenticated; GRANT SELECT ON public.visitas TO authenticated;
+DROP POLICY IF EXISTS "visitas participantes" ON public.visitas;
+CREATE POLICY "visitas participantes" ON public.visitas FOR SELECT TO authenticated USING (auth.uid() IN (solicitante, owner_id) OR public.es_admin());
+CREATE OR REPLACE FUNCTION public.pedir_visita(p_anuncio UUID, p_inicio TIMESTAMPTZ, p_nota TEXT DEFAULT NULL) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE a anuncios; nid BIGINT;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Inicia sesión'; END IF;
+  SELECT * INTO a FROM anuncios WHERE id = p_anuncio AND estado = 'aprobado'; IF NOT FOUND THEN RAISE EXCEPTION 'Anuncio no disponible'; END IF;
+  IF a.owner_id = auth.uid() THEN RAISE EXCEPTION 'Es tu propio anuncio'; END IF;
+  IF p_inicio < now() + interval '1 hour' OR p_inicio > now() + interval '60 days' THEN RAISE EXCEPTION 'Elige una fecha entre 1 hora y 60 días desde ahora'; END IF;
+  IF (SELECT count(*) FROM visitas WHERE solicitante = auth.uid() AND estado = 'pendiente') >= 5 THEN RAISE EXCEPTION 'Tienes demasiadas solicitudes pendientes'; END IF;
+  IF EXISTS (SELECT 1 FROM bloqueos WHERE (blocker_id = a.owner_id AND blocked_id = auth.uid())) THEN RAISE EXCEPTION 'No disponible'; END IF;
+  INSERT INTO visitas(anuncio_id, solicitante, owner_id, inicio, nota) VALUES (a.id, auth.uid(), a.owner_id, p_inicio, left(p_nota,300)) RETURNING id INTO nid;
+  PERFORM notificar(a.owner_id, 'visita_pedida', '📅 Solicitud de visita', a.titulo || ' · ' || to_char(p_inicio AT TIME ZONE 'America/Costa_Rica', 'DD/MM HH24:MI'), 'cuenta.html#visitas');
+  RETURN nid;
+END $$;
+CREATE OR REPLACE FUNCTION public.responder_visita(p_id BIGINT, p_estado TEXT) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v visitas; t TEXT;
+BEGIN
+  SELECT * INTO v FROM visitas WHERE id = p_id; IF NOT FOUND THEN RAISE EXCEPTION 'No existe'; END IF;
+  IF p_estado IN ('confirmada','rechazada') AND v.owner_id <> auth.uid() THEN RAISE EXCEPTION 'permiso denegado'; END IF;
+  IF p_estado = 'cancelada' AND auth.uid() NOT IN (v.owner_id, v.solicitante) THEN RAISE EXCEPTION 'permiso denegado'; END IF;
+  IF p_estado NOT IN ('confirmada','rechazada','cancelada') THEN RAISE EXCEPTION 'Estado inválido'; END IF;
+  UPDATE visitas SET estado = p_estado WHERE id = p_id;
+  SELECT titulo INTO t FROM anuncios WHERE id = v.anuncio_id;
+  PERFORM notificar(CASE WHEN auth.uid() = v.owner_id THEN v.solicitante ELSE v.owner_id END, 'visita_' || p_estado,
+    CASE p_estado WHEN 'confirmada' THEN '✅ Visita confirmada' WHEN 'rechazada' THEN '⛔ Visita rechazada' ELSE '🚫 Visita cancelada' END,
+    t || ' · ' || to_char(v.inicio AT TIME ZONE 'America/Costa_Rica', 'DD/MM HH24:MI'), 'cuenta.html#visitas');
+END $$;
+REVOKE ALL ON FUNCTION public.pedir_visita(UUID,TIMESTAMPTZ,TEXT) FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.pedir_visita(UUID,TIMESTAMPTZ,TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION public.responder_visita(BIGINT,TEXT) FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.responder_visita(BIGINT,TEXT) TO authenticated;
+
+-- Tareas diarias: recordatorios de visita (24 h antes) y vencimiento de plan/prueba (2 días / 6 h)
+CREATE OR REPLACE FUNCTION public.notif_diarias() RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE r RECORD; n INT := 0;
+BEGIN
+  FOR r IN SELECT v.*, a.titulo FROM visitas v JOIN anuncios a ON a.id = v.anuncio_id WHERE v.estado = 'confirmada' AND NOT v.recordado AND v.inicio BETWEEN now() AND now() + interval '26 hours' LOOP
+    PERFORM notificar(r.solicitante, 'visita_recordatorio', '⏰ Recordatorio de visita', r.titulo || ' · ' || to_char(r.inicio AT TIME ZONE 'America/Costa_Rica', 'DD/MM HH24:MI'), 'cuenta.html#visitas');
+    PERFORM notificar(r.owner_id, 'visita_recordatorio', '⏰ Recordatorio de visita', r.titulo || ' · ' || to_char(r.inicio AT TIME ZONE 'America/Costa_Rica', 'DD/MM HH24:MI'), 'cuenta.html#visitas');
+    UPDATE visitas SET recordado = TRUE WHERE id = r.id; n := n + 1;
+  END LOOP;
+  FOR r IN SELECT id, plus_until FROM profiles WHERE plus_until BETWEEN now() AND now() + interval '2 days' AND suscripcion_cancelada_at IS NOT NULL OR (plus_origen = 'admin' AND plus_until BETWEEN now() AND now() + interval '2 days') LOOP
+    PERFORM notificar(r.id, 'plan_vence', '⏳ Tu plan vence pronto', 'Vence el ' || to_char(r.plus_until AT TIME ZONE 'America/Costa_Rica', 'DD/MM'), 'planes.html'); n := n + 1;
+  END LOOP;
+  FOR r IN SELECT id, trial_ends_at FROM profiles WHERE trial_ends_at BETWEEN now() AND now() + interval '24 hours' LOOP
+    PERFORM notificar(r.id, 'prueba_vence', '⏳ Tu prueba de Plus termina pronto', 'Termina el ' || to_char(r.trial_ends_at AT TIME ZONE 'America/Costa_Rica', 'DD/MM HH24:MI'), 'planes.html'); n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+REVOKE ALL ON FUNCTION public.notif_diarias() FROM PUBLIC, anon, authenticated;
+DO $$ BEGIN PERFORM cron.unschedule('mapmarket-notif'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+SELECT cron.schedule('mapmarket-notif', '0 * * * *', 'SELECT public.notif_diarias()');
+
+-- Estadísticas del dueño (vistas/contactos por día, favoritos)
+CREATE OR REPLACE FUNCTION public.mis_estadisticas(dias INT DEFAULT 30) RETURNS TABLE(anuncio_id UUID, titulo TEXT, dia DATE, vistas BIGINT, contactos BIGINT, favoritos BIGINT)
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  WITH mios AS (SELECT id, titulo FROM anuncios WHERE owner_id = auth.uid()),
+  d AS (SELECT generate_series((now() - make_interval(days => LEAST(GREATEST(dias,1),90)))::date, now()::date, '1 day')::date AS dia)
+  SELECT m.id, m.titulo, d.dia,
+    (SELECT count(*) FROM eventos e WHERE e.property_id = 'u-' || m.id AND e.tipo = 'vista' AND e.created_at::date = d.dia),
+    (SELECT count(*) FROM eventos e WHERE e.property_id = 'u-' || m.id AND e.tipo = 'contacto' AND e.created_at::date = d.dia),
+    (SELECT count(*) FROM favoritos f WHERE f.property_id = 'u-' || m.id AND f.created_at::date <= d.dia)
+  FROM mios m CROSS JOIN d ORDER BY m.id, d.dia;
+$$;
+REVOKE ALL ON FUNCTION public.mis_estadisticas(INT) FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.mis_estadisticas(INT) TO authenticated;
+
+-- Pagos de destacado puntual (ONVO one-time)
+CREATE TABLE IF NOT EXISTS public.pagos_destacado (
+  id BIGSERIAL PRIMARY KEY, anuncio_id UUID NOT NULL REFERENCES public.anuncios(id) ON DELETE CASCADE, user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  sesion TEXT UNIQUE, estado TEXT NOT NULL DEFAULT 'iniciado' CHECK (estado IN ('iniciado','pagado','fallido')), dias INT NOT NULL DEFAULT 7, monto NUMERIC, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), pagado_at TIMESTAMPTZ);
+ALTER TABLE public.pagos_destacado ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.pagos_destacado FROM anon, authenticated; GRANT SELECT ON public.pagos_destacado TO authenticated;
+DROP POLICY IF EXISTS "pagos destacado propios" ON public.pagos_destacado;
+CREATE POLICY "pagos destacado propios" ON public.pagos_destacado FOR SELECT TO authenticated USING (user_id = auth.uid() OR public.es_admin());
+
+-- Métricas de administración
+CREATE OR REPLACE FUNCTION public.admin_metricas() RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE j JSONB;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE='42501'; END IF;
+  SELECT jsonb_build_object(
+    'usuarios', (SELECT count(*) FROM auth.users),
+    'activos_7d', (SELECT count(*) FROM auth.users WHERE last_sign_in_at > now() - interval '7 days'),
+    'activos_30d', (SELECT count(*) FROM auth.users WHERE last_sign_in_at > now() - interval '30 days'),
+    'altas_dia', (SELECT COALESCE(jsonb_agg(jsonb_build_object('d', d, 'n', n) ORDER BY d), '[]') FROM (SELECT created_at::date d, count(*) n FROM auth.users WHERE created_at > now() - interval '30 days' GROUP BY 1) s),
+    'planes', (SELECT jsonb_object_agg(p, n) FROM (SELECT CASE WHEN plan='pro' AND plus_until > now() THEN 'pro' WHEN plus_until > now() THEN 'plus' WHEN trial_ends_at > now() THEN 'prueba' ELSE 'free' END p, count(*) n FROM profiles GROUP BY 1) s),
+    'pagos_onvo', (SELECT count(*) FROM auth.users u JOIN profiles p ON p.id = u.id WHERE p.plus_origen = 'onvo' AND p.plus_until > now()),
+    'conversion_pct', (SELECT round(100.0 * count(*) FILTER (WHERE plus_origen = 'onvo') / NULLIF(count(*),0), 2) FROM profiles),
+    'mrr_crc', (SELECT COALESCE(sum(CASE WHEN plan='pro' THEN 6990 WHEN plus_until - now() > interval '40 days' THEN 29990/12.0 ELSE 3990 END),0)::int FROM profiles WHERE plus_origen='onvo' AND plus_until > now() AND suscripcion_cancelada_at IS NULL),
+    'destacados_pagados_30d', (SELECT COALESCE(sum(monto),0) FROM pagos_destacado WHERE estado='pagado' AND pagado_at > now() - interval '30 days'),
+    'pagos_eventos_30d', (SELECT COALESCE(jsonb_object_agg(evento, n), '{}') FROM (SELECT evento, count(*) n FROM pagos_eventos WHERE created_at > now() - interval '30 days' GROUP BY 1) s),
+    'anuncios', (SELECT COALESCE(jsonb_object_agg(estado, n), '{}') FROM (SELECT estado, count(*) n FROM anuncios GROUP BY 1) s),
+    'reportes_abiertos', (SELECT count(*) FROM reportes WHERE estado = 'nuevo'),
+    'retiros_pendientes', (SELECT count(*) FROM retiros WHERE estado = 'pendiente'),
+    'imagenes_pendientes', (SELECT count(*) FROM imagenes_moderacion WHERE estado IN ('sin_revisar','marcada')),
+    'mensajes_7d', (SELECT count(*) FROM mensajes WHERE created_at > now() - interval '7 days'),
+    'visitas_30d', (SELECT count(*) FROM visitas WHERE created_at > now() - interval '30 days'),
+    'zonas_guardadas', (SELECT count(*) FROM busquedas_guardadas WHERE zona IS NOT NULL),
+    'push_subs', (SELECT count(*) FROM push_subs),
+    'vistas_7d', (SELECT count(*) FROM eventos WHERE tipo='vista' AND created_at > now() - interval '7 days')
+  ) INTO j; RETURN j;
+END $$;
+REVOKE ALL ON FUNCTION public.admin_metricas() FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.admin_metricas() TO authenticated;
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v13 (notificaciones, zonas, visitas, stats, destacado, métricas) listo ✅' AS resultado;
+-- v13b · el destacado pagado solo lo fija el servidor (webhook) o un admin
+CREATE OR REPLACE FUNCTION public.anuncios_destacado_guard() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.role() = 'authenticated' AND NOT public.es_admin() THEN
+    IF TG_OP = 'INSERT' THEN NEW.destacado_until := NULL; ELSE NEW.destacado_until := OLD.destacado_until; END IF;
+  END IF; RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS anuncios_destacado_guard ON public.anuncios;
+CREATE TRIGGER anuncios_destacado_guard BEFORE INSERT OR UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_destacado_guard();
+SELECT 'v13b listo ✅' AS resultado;

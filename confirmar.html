@@ -32,4 +32,4 @@ $('rb').onclick=async()=>{const e=$('em').value.trim();if(!e){$('rm').textConten
   else ok('¡Correo confirmado!','Bienvenido a MapMarket, '+s.user.email+'. Te llevamos al mapa…',next);
  }catch(x){fail('No pudimos confirmar el enlace',/expired|invalid/i.test(x.message)?MSG.otp_expired:x.message)}
 })();
-</script></body></html>
+</script><script src="js/notif.js" defer></script></body></html>

@@ -130,7 +130,7 @@
     const pts = v.map(([a, o]) => `${(5 + (o - x0) * k * s).toFixed(1)},${(5 + (y1 - a) * s).toFixed(1)}`).join(' ');
     return `<svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><polygon points="${pts}" fill="#e11d4822" stroke="#e11d48" stroke-width="2"/></svg>`;
   }
-  window.MMDibujo = { parseCoords, area, perim, fmtA, fmtL, toGeo, fromGeo };
+  window.MMDibujo = { dibujar, parseCoords, area, perim, fmtA, fmtL, toGeo, fromGeo };
   window.addEventListener('mm-feat-ready', () => {
     try { patch() } catch (e) { console.warn('dibujo', e) }
     const map = MapController.map; map.on('moveend zoomend', contornos);

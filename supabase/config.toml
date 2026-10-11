@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.moderar-imagenes]
 verify_jwt = false
+
+[functions.push-enviar]
+verify_jwt = false

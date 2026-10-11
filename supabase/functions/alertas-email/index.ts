@@ -47,5 +47,21 @@ Deno.serve(async (req) => {
     const st = await correo(j.email, asunto, nuevos, en);
     resumen.estado_correo[st] = (resumen.estado_correo[st] ?? 0) + 1; resumen.items += nuevos.length; if (st === "enviado") resumen.correos++;
   }
+  // Respaldo por correo: notificaciones sin leer (>1 h) que no se enviaron por correo
+  const { data: pend } = await db.from("notificaciones").select("id,user_id,titulo,cuerpo,url,created_at").eq("leida", false).is("correo_at", null).lt("created_at", new Date(Date.now() - 3600e3).toISOString()).limit(2000);
+  const porU = new Map<string, any[]>(); (pend ?? []).forEach((n: any) => { if (!porU.has(n.user_id)) porU.set(n.user_id, []); porU.get(n.user_id)!.push(n); });
+  resumen.notif_correo = 0;
+  const key = Deno.env.get("RESEND_API_KEY"), from = Deno.env.get("ALERT_FROM");
+  for (const [uid, ns] of porU) {
+    const { data: pf } = await db.from("profiles").select("idioma,notif_correo").eq("id", uid).maybeSingle();
+    const ids = ns.map((n) => n.id);
+    if (pf && pf.notif_correo === false) { await db.from("notificaciones").update({ correo_at: new Date().toISOString() }).in("id", ids); continue; }
+    if (!key || !from) { resumen.estado_correo.sin_proveedor = (resumen.estado_correo.sin_proveedor ?? 0) + 1; continue; }
+    const { data: u } = await db.auth.admin.getUserById(uid); const to = u?.user?.email; if (!to) continue;
+    const en = pf?.idioma === "en";
+    const html = `<div style="font-family:sans-serif;max-width:560px"><h2 style="color:#0f766e">📍 MapMarket</h2><p>${en ? "You have unread notifications:" : "Tienes notificaciones sin leer:"}</p><ul>${ns.slice(0, 20).map((n) => `<li style="margin:8px 0"><a href="${SITE}${esc(n.url || "index.html")}">${esc(n.titulo)}</a>${n.cuerpo ? " — " + esc(n.cuerpo) : ""}</li>`).join("")}</ul><p style="font-size:12px;color:#64748b">${en ? `Turn off these emails in ${SITE}cuenta.html?lang=en` : `Desactiva estos correos en ${SITE}cuenta.html`}</p></div>`;
+    const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to, subject: en ? `MapMarket: ${ns.length} unread notification(s)` : `MapMarket: ${ns.length} notificación(es) sin leer`, html }) });
+    if (r.ok) { await db.from("notificaciones").update({ correo_at: new Date().toISOString() }).in("id", ids); resumen.notif_correo++; }
+  }
   return new Response(JSON.stringify(resumen), { headers: { "Content-Type": "application/json" } });
 });

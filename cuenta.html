@@ -38,4 +38,4 @@ async function extras(u){
    else sb.textContent=s.cancelada_at?'Suscripción cancelada: no se renovará. Plus activo hasta el '+new Date(s.plus_until).toLocaleDateString('es-CR')+'.':'Para cancelar, escríbenos a pcalifax@gmail.com.'}
  }catch(e){$('pagos').textContent='No se pudo cargar el historial ('+e.message+').'}}
 if(new URLSearchParams(location.search).get('pago')==='ok'){const b=document.createElement('div');b.className='max-w-3xl mx-auto mt-3 mx-4 rounded-xl bg-emerald-100 text-emerald-900 p-3 text-sm';b.textContent='✅ ¡Gracias! Recibimos tu pago con ONVO. Plus se activa en cuanto ONVO nos confirma (normalmente segundos); recarga si aún ves Gratis.';document.querySelector('header').after(b);let n=0;const t=setInterval(()=>{render();if(++n>6)clearInterval(t)},5000)}render();Auth.banner();setInterval(render,6e4);
-</script></body></html>
+</script><script src="js/mm-extra.js" defer></script><script src="js/notif.js" defer></script></body></html>
