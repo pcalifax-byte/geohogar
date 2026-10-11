@@ -115,6 +115,27 @@
     return `<div class="overflow-x-auto"><table class="w-full text-xs bg-white dark:bg-slate-800 rounded-xl"><tr class="text-left opacity-60"><th class="p-2">Cuándo</th><th>Admin</th><th>Acción</th><th>Objetivo</th><th>Detalle</th><th>Nota</th></tr>${data.map(r => `<tr class="border-t dark:border-slate-700 align-top"><td class="p-2 whitespace-nowrap">${d(r.created_at)}</td><td>${E((r.admin_id || '').slice(0, 8))}</td><td>${E(r.accion)}</td><td>${E((r.objetivo_id || '').slice(0, 8))}</td><td class="max-w-[320px] break-all">${E(JSON.stringify(r.detalle))}</td><td>${E(r.nota || '')}</td></tr>`).join('')}</table></div>`;
   }];
 
+  // ---------- Reseñas (moderación) ----------
+  const RS = { e: 'pendiente' };
+  T.resenas = ['⭐ Reseñas', async () => {
+    const data = await rpc('admin_lista_resenas', { p_estado: RS.e || null });
+    bind(async (g, b, r) => {
+      if (g === 'rfiltrar') { RS.e = $('rsE').value; return rerender() }
+      if (g === 'rtodos') { document.querySelectorAll('#out input.rsel').forEach(x => x.checked = !x.checked); return }
+      const [acc, m] = g.split(':'); const ids = (m ? [...document.querySelectorAll('#out input.rsel:checked')].map(x => +x.value) : [+r.dataset.id]); if (!ids.length) return alert('Selecciona reseñas');
+      if (acc === 'eliminar') { const ok = window.MMDialogo ? await MMDialogo(`¿Eliminar ${ids.length} reseña(s)?`, { campo: false, ok: 'Eliminar', peligro: true }) : confirm('¿Eliminar?'); if (ok === null || ok === false) return }
+      await rpc('admin_resenas', { ids, accion: acc }); rerender()
+    });
+    const st = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+    return `<div class="flex flex-wrap gap-2 mb-3"><select id="rsE" aria-label="Estado" class="h-10 px-2 rounded-lg border dark:bg-slate-800">${[['pendiente', 'Pendientes'], ['aprobada', 'Aprobadas'], ['rechazada', 'Rechazadas'], ['reportadas', 'Reportadas'], ['', 'Todas']].map(([v, l]) => `<option value="${v}" ${RS.e === v ? 'selected' : ''}>${l}</option>`).join('')}</select>${btn('rfiltrar', 'Filtrar', 'bg-teal-600 text-white border-teal-600')}</div>
+      <div class="flex flex-wrap gap-1.5 mb-2 text-sm">${btn('rtodos', '☑ Seleccionar todo')}${btn('aprobar:m', '✅ Aprobar sel.')}${btn('rechazar:m', '⛔ Rechazar sel.')}${btn('eliminar:m', '🗑️ Eliminar sel.', 'text-red-600')}</div>
+      <p class="text-xs opacity-70 mb-2">${data.length} reseñas</p>
+      ${data.map(x => `<article data-id="${x.id}" class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 mb-2 text-sm flex gap-3"><input type="checkbox" class="rsel w-5 h-5 mt-1" value="${x.id}" aria-label="Seleccionar"><div class="flex-1 min-w-0">
+        <div><span class="text-amber-500 text-base">${st(x.estrellas)}</span> <span class="text-xs rounded-full px-2 bg-slate-100 dark:bg-slate-700">${x.estado}</span>${x.reportes ? ` <span class="text-xs rounded-full px-2 bg-red-100 text-red-800">🚩 ${x.reportes}</span>` : ''}</div>
+        <div class="text-xs opacity-70">${E(x.autor)} → <a class="underline" href="perfil.html?id=${x.agente_id}" target="_blank">${E(x.agente)}</a> · ${d(x.created_at)}</div>${x.comentario ? `<p class="mt-1">${E(x.comentario)}</p>` : ''}
+        <div class="flex flex-wrap gap-1.5 mt-2">${btn('aprobar', '✅ Aprobar')}${btn('rechazar', '⛔ Rechazar')}${x.reportes ? btn('limpiar_reportes', 'Quitar reportes') : ''}${btn('eliminar', '🗑️ Eliminar', 'text-red-600')}</div></div></article>`).join('') || '<p class="opacity-60">Sin reseñas.</p>'}`;
+  }];
+
   // ---------- Reportes (agrupados por anuncio, con acciones directas) ----------
   const R = { e: 'abierto', q: '' };
   const MOT = { vendida: 'Ya se vendió', datos: 'Datos incorrectos', duplicado: 'Duplicado', fraude: 'Fraude/estafa', otro: 'Otro' };

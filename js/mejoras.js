@@ -45,7 +45,8 @@
     // perfil público del anunciante
     const p = (typeof UI !== 'undefined') && UI.cur;
     if (p && p.owner_id && !card.querySelector('.mmPerfil')) {
-      const h = card.querySelector('h2'); if (h) h.insertAdjacentHTML('afterend', `<a class="mmPerfil inline-flex items-center gap-1 text-sm text-teal-700 dark:text-teal-300 underline" style="min-height:36px" href="perfil.html?id=${encodeURIComponent(p.owner_id)}">👤 ${T('Ver perfil del anunciante')}</a>`);
+      const h = card.querySelector('h2'); if (h) h.insertAdjacentHTML('afterend', `<a class="mmPerfil inline-flex items-center gap-1 text-sm text-teal-700 dark:text-teal-300 underline" style="min-height:36px" href="perfil.html?id=${encodeURIComponent(p.owner_id)}">👤 ${T('Ver perfil del anunciante')} <span class="mmRat no-underline"></span></a>`);
+      (async () => { try { const c = await client(); const { data } = await c.rpc('resumen_resenas', { ids: [p.owner_id] }); const r = data && data[0]; const el = card.querySelector('.mmRat'); if (r && r.total && el) el.innerHTML = `· <span class="text-amber-500">★</span> ${r.promedio} (${r.total})` } catch (e) {} })();
     }
     card.dataset.mmOk = card.innerHTML.length + '';
   }

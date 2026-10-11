@@ -14,9 +14,34 @@ const $=i=>document.getElementById(i),X=s=>String(s??'').replace(/[&<>"']/g,c=>(
  document.title=p.nombre+' · MapMarket';
  $('m').innerHTML=`<section class="bg-white dark:bg-slate-800 rounded-2xl shadow p-5 flex items-center gap-4">${p.foto_url?`<img src="${X(p.foto_url)}" alt="" class="w-20 h-20 rounded-full object-cover">`:`<div class="w-20 h-20 rounded-full bg-teal-600 text-white flex items-center justify-center text-3xl font-bold">${X(p.nombre[0]||'?').toUpperCase()}</div>`}
   <div><h1 class="text-2xl font-extrabold" data-noi18n>${X(p.nombre)}</h1><div class="flex flex-wrap gap-2 mt-1 text-xs">${p.verificado?`<span class="rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 px-2 py-0.5">✔ ${T('Correo verificado')}</span>`:''}${p.rol==='agente'?`<span class="rounded-full bg-violet-100 dark:bg-violet-900 px-2 py-0.5">🏢 ${T('Agente')}</span>`:''}<span class="opacity-70">${T('En MapMarket desde')} ${p.desde}</span></div>
-  <div class="text-sm mt-1">${p.activos} ${p.activos==1?T('anuncio activo'):T('anuncios activos')}</div></div></section>
+  <div id="mmRat" class="text-sm mt-1"></div><div class="text-sm mt-1">${p.activos} ${p.activos==1?T('anuncio activo'):T('anuncios activos')}</div></div></section>
   <h2 class="text-lg font-bold mt-6">${T('Propiedades publicadas')}</h2>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">${(L||[]).map(a=>`<a href="index.html?p=u-${a.id}" class="block rounded-2xl overflow-hidden bg-white dark:bg-slate-800 shadow hover:shadow-lg"><div class="h-44 bg-slate-200 dark:bg-slate-700">${a.imagenes&&a.imagenes[0]?`<img loading="lazy" decoding="async" src="${X(a.imagenes[0])}" alt="" class="w-full h-full object-cover">`:''}</div><div class="p-3"><div class="text-lg font-extrabold text-teal-700 dark:text-teal-300">${fmt(a.precio,a.moneda)}</div><div class="font-semibold" data-noi18n>${X(a.titulo)}</div><div class="text-xs opacity-70" data-noi18n>${X([a.zona,a.provincia].filter(Boolean).join(', '))}</div></div></a>`).join('')||`<p class="opacity-60">${T('Sin propiedades activas.')}</p>`}</div>`;
+
+ // ---------- Reseñas ----------
+ const me=await Auth.user(),st=n=>'★'.repeat(n)+'☆'.repeat(5-n);
+ const sec=document.createElement('section');sec.className='mt-8';$('m').appendChild(sec);
+ async function resenas(){
+  const {data:rs}=await c.rpc('resumen_resenas',{ids:[id]});const r=rs&&rs[0];
+  const {data:L}=await c.from('resenas').select('id,autor_id,estrellas,comentario,estado,created_at').eq('agente_id',id).order('created_at',{ascending:false}).limit(100);
+  const ap=(L||[]).filter(x=>x.estado==='aprobada'),mia=(L||[]).find(x=>me&&x.autor_id===me.id);
+  const ids=[...new Set(ap.map(x=>x.autor_id))];let N={};if(ids.length){const {data:pp}=await c.from('perfiles_publicos').select('id,nombre').in('id',ids);(pp||[]).forEach(x=>N[x.id]=x.nombre)}
+  const sum=$('mmRat');if(sum)sum.innerHTML=r&&r.total?`<span class="text-amber-500">★</span> <b>${r.promedio}</b> <span class="opacity-70">(${r.total})</span>`:`<span class="opacity-60">${T('Sin reseñas aún')}</span>`;
+  sec.innerHTML=`<h2 class="text-lg font-bold">⭐ ${T('Reseñas')} ${r&&r.total?`<span class="text-amber-500">★ ${r.promedio}</span> <span class="text-sm font-normal opacity-70">(${r.total})</span>`:''}</h2>
+  ${me&&me.id!==id?`<form id="rF" class="mt-3 bg-white dark:bg-slate-800 rounded-2xl shadow p-4"><div class="font-semibold">${mia?T('Tu reseña'):T('Califica a este anunciante')}${mia?` <span class="text-xs rounded-full px-2 bg-slate-100 dark:bg-slate-700">${T(mia.estado==='aprobada'?'Publicada':mia.estado==='rechazada'?'Rechazada':'En revisión')}</span>`:''}</div>
+   <div class="flex gap-1 mt-2" role="radiogroup" aria-label="${T('Estrellas')}">${[1,2,3,4,5].map(n=>`<button type="button" data-s="${n}" role="radio" aria-label="${n}" class="text-3xl text-amber-500" style="min-width:44px;min-height:44px">☆</button>`).join('')}</div>
+   <textarea id="rC" maxlength="600" rows="3" class="w-full mt-2 border rounded p-2 dark:bg-slate-700 dark:border-slate-600" placeholder="${T('Comentario (opcional)')}">${X(mia?.comentario||'')}</textarea>
+   <div class="flex gap-2 mt-2"><button class="rounded-lg bg-teal-600 text-white px-4" style="min-height:44px">${mia?T('Actualizar reseña'):T('Enviar reseña')}</button>${mia?`<button type="button" id="rDel" class="rounded-lg border border-red-500 text-red-600 px-3" style="min-height:44px">${T('Borrar')}</button>`:''}</div>
+   <p class="text-xs opacity-70 mt-1">${T('Las reseñas se publican después de que un administrador las revise.')}</p><p id="rMsg" class="text-sm mt-1" role="status"></p></form>`:''}
+  <div class="mt-3 space-y-2">${ap.map(x=>`<article class="bg-white dark:bg-slate-800 rounded-xl shadow p-3 text-sm"><div><span class="text-amber-500">${st(x.estrellas)}</span> <b data-noi18n>${X(N[x.autor_id]||T('Usuario'))}</b> <span class="text-xs opacity-60">${new Date(x.created_at).toLocaleDateString(window.MMLocale||'es-CR')}</span></div>${x.comentario?`<p class="mt-1" data-noi18n>${X(x.comentario)}</p>`:''}${me&&me.id!==x.autor_id?`<button data-rep="${x.id}" class="text-xs underline opacity-70 mt-1" style="min-height:32px">🚩 ${T('Reportar abuso')}</button>`:''}</article>`).join('')||`<p class="opacity-60 text-sm">${T('Sin reseñas aún')}</p>`}</div>`;
+  let sel=mia?mia.estrellas:0;const paint=()=>sec.querySelectorAll('[data-s]').forEach(b=>{b.textContent=+b.dataset.s<=sel?'★':'☆';b.setAttribute('aria-checked',+b.dataset.s===sel)});paint();
+  sec.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{sel=+b.dataset.s;paint()});
+  const f=$('rF');if(f)f.onsubmit=async e=>{e.preventDefault();if(!sel){$('rMsg').textContent='⚠️ '+T('Elige de 1 a 5 estrellas.');return}const row={agente_id:id,estrellas:sel,comentario:$('rC').value.trim()||null};
+   const {error}=mia?await c.from('resenas').update(row).eq('id',mia.id):await c.from('resenas').insert(row);$('rMsg').textContent=error?'❌ '+error.message:'✅ '+T('Gracias: tu reseña quedó en revisión.');if(!error)setTimeout(resenas,800)};
+  if($('rDel'))$('rDel').onclick=async()=>{const ok=window.MMDialogo?await MMDialogo(T('¿Borrar tu reseña?'),{campo:false,peligro:true,ok:T('Borrar')}):true;if(ok===null)return;await c.from('resenas').delete().eq('id',mia.id);resenas()};
+  sec.querySelectorAll('[data-rep]').forEach(b=>b.onclick=async()=>{await c.rpc('reportar_resena',{p_id:+b.dataset.rep});b.textContent='✅ '+T('Reportada');b.disabled=true});
+ }
+ resenas();
   setTimeout(async()=>{if(!window.MMAdminFicha||!(await MMAdminFicha.admin()))return;document.querySelectorAll('#m a[href^="index.html?p=u-"]').forEach(a=>{const id=a.getAttribute('href').split('p=')[1];const box=document.createElement('div');a.before(box);box.appendChild(a);const w=document.createElement('div');w.className='px-1';box.appendChild(w);const t=a.querySelector('.font-semibold');MMAdminFicha.barra({id,title:t?t.textContent:''},w,x=>{if(x!=='editar')box.remove()})})},300);
 })();
 </script></body></html>

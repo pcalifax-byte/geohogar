@@ -1727,3 +1727,42 @@ declare n int; begin if not public.es_admin() then raise exception 'Solo admin';
 revoke execute on function public.admin_ocultar_demo(text[],text) from anon, public; grant execute on function public.admin_ocultar_demo(text[],text) to authenticated;
 notify pgrst, 'reload schema';
 select 1;
+-- v19: reseñas de agentes/vendedores (moderadas)
+create table if not exists public.resenas (id bigserial primary key, agente_id uuid not null references public.profiles(id) on delete cascade, autor_id uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  estrellas int not null check (estrellas between 1 and 5), comentario text check (comentario is null or char_length(comentario) <= 600), estado text not null default 'pendiente' check (estado in ('pendiente','aprobada','rechazada')),
+  reportes int not null default 0, created_at timestamptz default now(), updated_at timestamptz default now(), unique (agente_id, autor_id), check (agente_id <> autor_id));
+alter table public.resenas enable row level security;
+drop policy if exists "resenas ver" on public.resenas; create policy "resenas ver" on public.resenas for select to authenticated using (estado='aprobada' or autor_id=auth.uid() or public.es_admin());
+drop policy if exists "resenas crear" on public.resenas; create policy "resenas crear" on public.resenas for insert to authenticated with check (autor_id=auth.uid() and agente_id<>auth.uid());
+drop policy if exists "resenas editar" on public.resenas; create policy "resenas editar" on public.resenas for update to authenticated using (autor_id=auth.uid() or public.es_admin()) with check (autor_id=auth.uid() or public.es_admin());
+drop policy if exists "resenas borrar" on public.resenas; create policy "resenas borrar" on public.resenas for delete to authenticated using (autor_id=auth.uid() or public.es_admin());
+create or replace function public.resenas_guardia() returns trigger language plpgsql security definer set search_path=public as $$
+begin NEW.updated_at := now();
+  if public.es_admin() then return NEW; end if;
+  if TG_OP='INSERT' then NEW.autor_id := auth.uid(); NEW.estado := 'pendiente'; NEW.reportes := 0;
+    if (select count(*) from resenas where autor_id=auth.uid() and created_at > now()-interval '1 day') >= 5 then raise exception 'Máximo 5 reseñas por día.'; end if;
+  else NEW.autor_id := OLD.autor_id; NEW.agente_id := OLD.agente_id; NEW.reportes := OLD.reportes; NEW.created_at := OLD.created_at; NEW.estado := 'pendiente'; end if;
+  return NEW; end $$;
+drop trigger if exists resenas_guardia_trg on public.resenas; create trigger resenas_guardia_trg before insert or update on public.resenas for each row execute function public.resenas_guardia();
+create or replace function public.resumen_resenas(ids uuid[]) returns table(agente_id uuid, promedio numeric, total int) language sql stable security definer set search_path=public as $$
+  select agente_id, round(avg(estrellas)::numeric,1), count(*)::int from resenas where estado='aprobada' and agente_id = any(ids) group by agente_id $$;
+revoke execute on function public.resumen_resenas(uuid[]) from anon, public; grant execute on function public.resumen_resenas(uuid[]) to authenticated;
+create or replace function public.reportar_resena(p_id bigint) returns void language plpgsql security definer set search_path=public as $$
+begin if auth.uid() is null then raise exception 'Inicia sesión'; end if; update resenas set reportes = reportes + 1 where id=p_id and estado='aprobada'; end $$;
+revoke execute on function public.reportar_resena(bigint) from anon, public; grant execute on function public.reportar_resena(bigint) to authenticated;
+create or replace function public.admin_resenas(ids bigint[], accion text) returns int language plpgsql security definer set search_path=public as $$
+declare r record; n int := 0; begin if not public.es_admin() then raise exception 'Solo admin'; end if;
+  if accion not in ('aprobar','rechazar','eliminar','limpiar_reportes') then raise exception 'Acción inválida'; end if;
+  for r in select * from resenas where id = any(ids) loop
+    if accion='eliminar' then delete from resenas where id=r.id;
+    elsif accion='limpiar_reportes' then update resenas set reportes=0 where id=r.id;
+    else update resenas set estado = case accion when 'aprobar' then 'aprobada' else 'rechazada' end where id=r.id;
+      if accion='aprobar' and r.estado<>'aprobada' then perform public.notificar(r.agente_id,'resena','⭐ Nueva reseña en tu perfil', r.estrellas||'/5'||coalesce(' — '||left(r.comentario,120),''), 'perfil.html?id='||r.agente_id, null); end if; end if;
+    insert into admin_auditoria(admin_id,accion,objetivo_id,detalle) values(auth.uid(),'resena_'||accion,r.agente_id,jsonb_build_object('resena',r.id,'estrellas',r.estrellas,'antes',r.estado)); n := n+1; end loop; return n; end $$;
+revoke execute on function public.admin_resenas(bigint[],text) from anon, public; grant execute on function public.admin_resenas(bigint[],text) to authenticated;
+create or replace function public.admin_lista_resenas(p_estado text default null) returns table(id bigint, agente_id uuid, agente text, autor_id uuid, autor text, estrellas int, comentario text, estado text, reportes int, created_at timestamptz) language sql stable security definer set search_path=public as $$
+  select r.id, r.agente_id, coalesce(a.nombre,a.email), r.autor_id, coalesce(u.nombre,u.email), r.estrellas, r.comentario, r.estado, r.reportes, r.created_at from resenas r join profiles a on a.id=r.agente_id join profiles u on u.id=r.autor_id
+  where public.es_admin() and (p_estado is null or (p_estado='reportadas' and r.reportes>0) or r.estado=p_estado) order by r.created_at desc limit 500 $$;
+revoke execute on function public.admin_lista_resenas(text) from anon, public; grant execute on function public.admin_lista_resenas(text) to authenticated;
+notify pgrst, 'reload schema';
+select 1;
