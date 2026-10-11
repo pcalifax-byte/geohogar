@@ -155,6 +155,10 @@ def check(p):
         if f'"adId":"{p["id"]}"' not in hh and f'"id":"{p["id"]}"' not in hh: return "retirada"   # la página ya no contiene el anuncio
     if p["source"] == "anuntico":
         if '"RealEstateListing"' not in h: return "retirada"
+        m = re.search(r'"price"\s*:\s*"?([0-9][0-9.]*)"?', h); cu = re.search(r'"priceCurrency"\s*:\s*"([A-Z]{3})"', h)
+        if m:
+            try: p["_precio_nuevo"] = (float(m.group(1)), cu.group(1) if cu else p.get("currency"))
+            except ValueError: pass
         if re.search(r'"availability":"https://schema.org/(SoldOut|Discontinued)"', h): return "vendida" if "SoldOut" in h else "retirada"
     head = t[: t.find("Descripción")] if "Descripción" in t else t[:3000]   # solo título/estado, no la descripción libre
     if SOLD.search(head): return "vendida"
@@ -172,6 +176,9 @@ def update_listings(props):
         if st is None: cnt["sin_cambio_error"] += 1
         else:
             p["verificado"] = TODAY
+            pn = p.pop("_precio_nuevo", None)
+            if pn and pn[0] > 0 and pn[1] in ("USD", "CRC") and (pn[0] != p.get("price") or pn[1] != p.get("currency")):
+                p["price"], p["currency"] = pn[0], pn[1]; cnt["precio_cambiado"] = cnt.get("precio_cambiado", 0) + 1
             prev = p.get("status", "activa")
             if st != prev:
                 p["status"] = st; p["status_fecha"] = TODAY

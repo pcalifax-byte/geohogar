@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.cuenta]
 verify_jwt = true
+
+[functions.alertas-email]
+verify_jwt = false

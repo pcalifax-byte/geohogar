@@ -642,3 +642,124 @@ SELECT 'MapMarket v5 (retiros + límites) listo ✅' AS resultado;
 -- v6 · Suscripción cancelable por el usuario
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS suscripcion_cancelada_at TIMESTAMPTZ;
 NOTIFY pgrst, 'reload schema';
+
+-- =====================================================================
+-- v7 · Anuncios publicados por usuarios (con moderación) + fotos en Storage + panel admin + alertas por correo. Idempotente.
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS public.anuncios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobado','rechazado','vendido','retirado')),
+  motivo_rechazo TEXT CHECK (char_length(motivo_rechazo) <= 300),
+  titulo TEXT NOT NULL CHECK (char_length(titulo) BETWEEN 5 AND 140),
+  tipo TEXT NOT NULL CHECK (char_length(tipo) <= 40),
+  provincia TEXT NOT NULL CHECK (provincia IN ('San José','Alajuela','Cartago','Heredia','Guanacaste','Puntarenas','Limón')),
+  zona TEXT CHECK (char_length(zona) <= 120),
+  precio NUMERIC NOT NULL CHECK (precio > 0 AND precio < 1e12),
+  moneda TEXT NOT NULL CHECK (moneda IN ('USD','CRC')),
+  habitaciones SMALLINT CHECK (habitaciones BETWEEN 0 AND 50),
+  banos NUMERIC CHECK (banos BETWEEN 0 AND 50),
+  area NUMERIC CHECK (area BETWEEN 0 AND 1e8),
+  descripcion TEXT CHECK (char_length(descripcion) <= 2000),
+  amenidades TEXT[] NOT NULL DEFAULT '{}' CHECK (cardinality(amenidades) <= 40),
+  imagenes TEXT[] NOT NULL DEFAULT '{}' CHECK (cardinality(imagenes) <= 8),
+  lat DOUBLE PRECISION NOT NULL CHECK (lat BETWEEN 8 AND 11.3),
+  lon DOUBLE PRECISION NOT NULL CHECK (lon BETWEEN -86 AND -82.5),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS anuncios_estado_idx ON public.anuncios (estado, created_at DESC);
+CREATE INDEX IF NOT EXISTS anuncios_owner_idx ON public.anuncios (owner_id);
+-- Al crear/editar, el dueño no puede auto-aprobarse; máx. 10 anuncios nuevos por día
+CREATE OR REPLACE FUNCTION public.anuncios_guardia() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  NEW.updated_at := now();
+  IF public.es_admin() THEN RETURN NEW; END IF;
+  IF TG_OP = 'INSERT' THEN
+    NEW.owner_id := auth.uid(); NEW.estado := 'pendiente'; NEW.motivo_rechazo := NULL; NEW.created_at := now();
+    IF (SELECT count(*) FROM anuncios WHERE owner_id = auth.uid() AND created_at > now() - interval '1 day') >= 10 THEN RAISE EXCEPTION 'Máximo 10 anuncios por día.'; END IF;
+  ELSE
+    NEW.owner_id := OLD.owner_id; NEW.created_at := OLD.created_at;
+    -- el dueño puede marcar vendido/retirado; cualquier otra edición vuelve a revisión
+    IF NEW.estado = 'retirado' OR (NEW.estado = 'vendido' AND OLD.estado IN ('aprobado','vendido') AND NEW.titulo = OLD.titulo AND NEW.precio = OLD.precio AND NEW.imagenes = OLD.imagenes AND NEW.descripcion IS NOT DISTINCT FROM OLD.descripcion) THEN NULL;
+    ELSE NEW.estado := 'pendiente'; NEW.motivo_rechazo := NULL; END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS anuncios_guardia_trg ON public.anuncios;
+CREATE TRIGGER anuncios_guardia_trg BEFORE INSERT OR UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_guardia();
+ALTER TABLE public.anuncios ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.anuncios TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.anuncios TO authenticated;
+DROP POLICY IF EXISTS "anuncios publicos" ON public.anuncios;
+CREATE POLICY "anuncios publicos" ON public.anuncios FOR SELECT TO anon, authenticated USING (estado IN ('aprobado','vendido') OR owner_id = auth.uid() OR public.es_admin());
+DROP POLICY IF EXISTS "anuncios crear" ON public.anuncios;
+CREATE POLICY "anuncios crear" ON public.anuncios FOR INSERT TO authenticated WITH CHECK (owner_id = auth.uid());
+DROP POLICY IF EXISTS "anuncios editar" ON public.anuncios;
+CREATE POLICY "anuncios editar" ON public.anuncios FOR UPDATE TO authenticated USING (owner_id = auth.uid() OR public.es_admin()) WITH CHECK (owner_id = auth.uid() OR public.es_admin());
+DROP POLICY IF EXISTS "anuncios borrar" ON public.anuncios;
+CREATE POLICY "anuncios borrar" ON public.anuncios FOR DELETE TO authenticated USING (owner_id = auth.uid() OR public.es_admin());
+
+-- Chat: los anuncios de usuarios (id 'u-<uuid>') tienen dueño
+CREATE OR REPLACE FUNCTION public.iniciar_conversacion(listing TEXT) RETURNS BIGINT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE dueno UUID; cid BIGINT;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Debes iniciar sesión'; END IF;
+  IF listing IS NULL OR char_length(listing) > 64 THEN RAISE EXCEPTION 'Anuncio inválido'; END IF;
+  IF listing ~ '^u-[0-9a-f-]{36}$' THEN SELECT owner_id INTO dueno FROM anuncios WHERE id = substr(listing, 3)::uuid AND estado = 'aprobado'; END IF;
+  IF dueno IS NULL THEN SELECT owner_id INTO dueno FROM anuncios_duenos WHERE listing_id = listing; END IF;
+  IF dueno IS NULL THEN SELECT user_id INTO dueno FROM destacadas WHERE property_id = listing; END IF;
+  IF dueno = auth.uid() THEN RAISE EXCEPTION 'Este anuncio es tuyo'; END IF;
+  INSERT INTO conversaciones (listing_id, user_id, owner_id) VALUES (listing, auth.uid(), dueno)
+  ON CONFLICT (listing_id, user_id) DO UPDATE SET last_at = conversaciones.last_at
+  RETURNING id INTO cid;
+  RETURN cid;
+END $$;
+
+-- Storage: bucket público de fotos; cada usuario solo escribe en su carpeta <uid>/
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('anuncios', 'anuncios', true, 5242880, ARRAY['image/jpeg','image/png','image/webp'])
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 5242880, allowed_mime_types = ARRAY['image/jpeg','image/png','image/webp'];
+DROP POLICY IF EXISTS "anuncios fotos subir" ON storage.objects;
+CREATE POLICY "anuncios fotos subir" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'anuncios' AND (storage.foldername(name))[1] = auth.uid()::text);
+DROP POLICY IF EXISTS "anuncios fotos borrar" ON storage.objects;
+CREATE POLICY "anuncios fotos borrar" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'anuncios' AND ((storage.foldername(name))[1] = auth.uid()::text OR public.es_admin()));
+
+-- Admin: reportes de usuarios y lectura de bloqueos
+GRANT SELECT ON public.reportes_usuarios TO authenticated;
+DROP POLICY IF EXISTS "admin reportes usuarios" ON public.reportes_usuarios;
+CREATE POLICY "admin reportes usuarios" ON public.reportes_usuarios FOR SELECT TO authenticated USING (public.es_admin());
+
+-- Alertas por correo: registro de envíos (dedupe por alerta+anuncio)
+CREATE TABLE IF NOT EXISTS public.alertas_envios (
+  alerta_tipo TEXT NOT NULL CHECK (alerta_tipo IN ('precio','busqueda')),
+  alerta_id BIGINT NOT NULL,
+  item_id TEXT NOT NULL,
+  precio NUMERIC,
+  enviada_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (alerta_tipo, alerta_id, item_id)
+);
+ALTER TABLE public.alertas_envios ENABLE ROW LEVEL SECURITY;   -- solo service_role
+-- Vista para la función programada (service_role): zonas como GeoJSON
+CREATE OR REPLACE VIEW public.alertas_precio_geo WITH (security_invoker = true) AS
+  SELECT a.id, a.user_id, a.nombre, a.precio_max_usd, a.tipo, a.provincia, a.activa,
+         extensions.ST_AsGeoJSON(a.zona::extensions.geometry)::json AS zona_geojson, u.email
+  FROM public.alertas_precio a JOIN auth.users u ON u.id = a.user_id;
+REVOKE ALL ON public.alertas_precio_geo FROM anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v7 (anuncios + storage + admin + alertas) listo ✅' AS resultado;
+
+-- v7b · zonas de búsquedas guardadas como GeoJSON (solo service_role)
+CREATE OR REPLACE VIEW public.busquedas_geo WITH (security_invoker = true) AS
+  SELECT b.id, b.user_id, b.nombre, b.filtros, b.alerta, extensions.ST_AsGeoJSON(b.zona::extensions.geometry)::json AS zona_geojson, u.email
+  FROM public.busquedas_guardadas b JOIN auth.users u ON u.id = b.user_id;
+REVOKE ALL ON public.busquedas_geo FROM anon, authenticated;
+NOTIFY pgrst, 'reload schema';
+GRANT EXECUTE ON FUNCTION public.is_plus(UUID) TO service_role;
+SELECT 'MapMarket v7b listo ✅' AS resultado;
+-- Programación diaria de alertas (ejecutar aparte, con tu CRON_SECRET; no se guarda en el repo):
+--   CREATE EXTENSION IF NOT EXISTS pg_cron; CREATE EXTENSION IF NOT EXISTS pg_net;
+--   SELECT cron.schedule('mapmarket-alertas', '0 13 * * *', $$ SELECT net.http_post('https://<ref>.supabase.co/functions/v1/alertas-email', '{}'::jsonb, '{}'::jsonb, jsonb_build_object('x-cron-secret','<CRON_SECRET>','Content-Type','application/json')) $$);

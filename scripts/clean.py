@@ -11,12 +11,20 @@ def clean(props, today=None):
     today = today or datetime.date.today().isoformat()
     st = {"a_consultar": 0, "moneda_corregida": 0, "dudoso": 0, "duplicados": 0, "desplazados": 0, "sin_verificar": 0}
     seen, out = set(), []
+    import os, json as _j
+    try: excl = set(map(str, _j.load(open(os.path.join(os.path.dirname(__file__), "excluidos.json")))))
+    except Exception: excl = set()
+    st["excluidos"] = 0
     for p in props:
+        if str(p.get("id")) in excl: st["excluidos"] += 1; continue
         k = (p.get("title"), p.get("price"), round(p.get("lat0", p.get("lat", 0)), 4), round(p.get("lon0", p.get("lon", 0)), 4))
         if not p.get("demo") and not p.get("mine") and k in seen: st["duplicados"] += 1; continue
         seen.add(k); out.append(p)
         if p.get("demo"): continue
+        p.pop("_precio_nuevo", None)
         pr, cur = p.get("price"), p.get("currency")
+        h = p.setdefault("precio_hist", [])          # historial de precios [fecha, precio, moneda]
+        if pr and pr > 0 and (not h or h[-1][1] != pr or h[-1][2] != cur): h.append([today, pr, cur]); h[:] = h[-12:]
         if p.get("precio_flag") == "moneda_corregida": st["moneda_corregida"] += 1
         elif not pr or pr <= 0: p["price"] = None; p["precio_flag"] = "a_consultar"; st["a_consultar"] += 1
         elif cur == "USD" and pr > 20_000_000: p["currency"] = "CRC"; p["precio_flag"] = "moneda_corregida"; p["precio_original"] = f"{pr} USD"; st["moneda_corregida"] += 1

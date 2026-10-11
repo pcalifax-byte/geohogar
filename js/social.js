@@ -68,7 +68,7 @@
     },
     cardButton(p) {
       const has = !p.demo && !p.mine;
-      return `<button id="fMsg" class="col-span-2 border-2 border-teal-600 text-teal-700 dark:text-teal-300 rounded-xl py-2.5 font-semibold" ${has ? '' : 'disabled'}>✉️ Enviar mensaje${has ? '' : ' (no disponible)'}</button><p class="col-span-2 text-[11px] opacity-60 -mt-1">${p.mine ? 'Es tu publicación.' : p.demo ? 'Propiedad de demostración.' : Feat.Dest.set.has(String(p.id)) ? 'Le escribes al agente que destacó este anuncio, dentro de MapMarket.' : 'Este anuncio fue tomado de un portal público y no tiene dueño en MapMarket: tu mensaje llega a «MapMarket soporte». Para el anunciante usa WhatsApp.'}</p>`;
+      return `<button id="fMsg" class="col-span-2 border-2 border-teal-600 text-teal-700 dark:text-teal-300 rounded-xl py-2.5 font-semibold" ${has ? '' : 'disabled'}>✉️ Enviar mensaje${has ? '' : ' (no disponible)'}</button><p class="col-span-2 text-[11px] opacity-60 -mt-1">${p.mine ? 'Es tu publicación.' : p.demo ? 'Propiedad de demostración.' : p.usuario ? 'Le escribes directamente al anunciante, dentro de MapMarket.' : Feat.Dest.set.has(String(p.id)) ? 'Le escribes al agente que destacó este anuncio, dentro de MapMarket.' : 'Este anuncio fue tomado de un portal público y no tiene dueño en MapMarket: tu mensaje llega a «MapMarket soporte». Para el anunciante usa WhatsApp.'}</p>`;
     }
   };
 

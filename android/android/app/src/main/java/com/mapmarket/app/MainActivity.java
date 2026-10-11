@@ -9,7 +9,10 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
     static final String BASE = "https://pcalifax-byte.github.io/geohogar/";
@@ -26,6 +29,13 @@ public class MainActivity extends BridgeActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 7);
         }
+        getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError err) {
+                super.onReceivedError(view, req, err);
+                if (req != null && req.isForMainFrame()) view.loadUrl("file:///android_asset/offline.html");   // pantalla sin conexión
+            }
+        });
         openDeepLink(getIntent());
     }
 
