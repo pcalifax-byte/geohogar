@@ -118,5 +118,30 @@
     },
     theme() { const d = localStorage.getItem('geohogar_dark') === '1' || location.hash === '#dark'; document.documentElement.classList.toggle('dark', d); return d }
   };
+  // Redirecciones seguras: solo páginas propias relativas (evita open redirect y javascript:)
+  Auth.safeNext = (v, def = 'index.html') => {
+    v = String(v || '').trim();
+    return /^[a-z0-9_-]+\.html(?:[?#][\w\-.~%=&?#/+,;@!*'()]*)?$/i.test(v) && !/[:\\]|\/\//.test(v) ? v : def;
+  };
+  // Aviso de almacenamiento local/cookies + enlaces legales (todas las páginas)
+  function legal() {
+    if (document.getElementById('mmLegal')) return;
+    const isMap = /(^|\/)(index\.html)?$/.test(location.pathname) || /index\.html/.test(location.pathname);
+    if (!isMap) {
+      const f = document.createElement('footer'); f.id = 'mmLegal';
+      f.className = 'text-center text-xs opacity-70 py-4 px-3';
+      f.innerHTML = '© MapMarket · <a class="underline inline-block py-2" href="privacidad.html">Privacidad</a> · <a class="underline inline-block py-2" href="terminos.html">Términos</a> · <a class="underline inline-block py-2" href="terminos.html#retiro">Solicitar retiro de contenido</a> · <a class="underline inline-block py-2" href="mailto:pcalifax@gmail.com">pcalifax@gmail.com</a>';
+      if (!document.body.classList.contains('h-full') && !/(mensajes|confirmar)\.html/.test(location.pathname)) document.body.appendChild(f);
+    }
+    let ok = null; try { ok = localStorage.getItem('mm_cookies') } catch (e) {}
+    if (ok) return;
+    const b = document.createElement('div'); b.id = 'mmCookies'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Aviso de privacidad');
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:3000;max-width:560px;margin:auto';
+    b.className = 'rounded-xl shadow-xl bg-slate-900 text-slate-100 text-xs p-3 flex flex-wrap gap-2 items-center';
+    b.innerHTML = '<span class="flex-1 min-w-[200px]">🍪 MapMarket usa almacenamiento local del navegador (no cookies publicitarias) para tu sesión, favoritos y preferencias. <a class="underline" href="privacidad.html">Más info</a></span><button class="bg-teal-600 rounded-lg px-4 font-semibold" style="min-height:44px">Entendido</button>';
+    b.querySelector('button').onclick = () => { try { localStorage.setItem('mm_cookies', new Date().toISOString()) } catch (e) {} b.remove() };
+    document.body.appendChild(b);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', legal); else setTimeout(legal);
   window.Auth = Auth;
 })();

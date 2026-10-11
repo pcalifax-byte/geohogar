@@ -171,6 +171,7 @@ def update_listings(props):
         cnt["revisados"] += 1
         if st is None: cnt["sin_cambio_error"] += 1
         else:
+            p["verificado"] = TODAY
             prev = p.get("status", "activa")
             if st != prev:
                 p["status"] = st; p["status_fecha"] = TODAY
@@ -267,6 +268,8 @@ def main():
     if not A.no_listings:
         update_listings(props)
         if A.max_new: add_new(props)
+    from clean import clean          # calidad de datos: precios 0/dudosos, moneda, duplicados, puntos apilados
+    props, summary["limpieza"] = clean(props, TODAY)
     if json.dumps(props, sort_keys=True) != ps: save("propiedades.json", props, compact=True)
     changed = digest() != before
     st = {}

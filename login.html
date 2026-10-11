@@ -28,7 +28,7 @@
     </form>
     <div class="flex items-center gap-3 my-4 text-xs opacity-60"><div class="flex-1 h-px bg-current"></div>o<div class="flex-1 h-px bg-current"></div></div>
     <button id="magic" class="w-full border border-teal-600 text-teal-700 dark:text-teal-300 rounded-lg py-2.5 font-semibold">✉️ Entrar con enlace mágico por correo</button>
-    <p id="msg" class="text-sm mt-4 min-h-[1.25rem]"></p><button id="resend" class="hidden text-xs text-teal-700 dark:text-teal-400 underline">¿No llegó? Reenviar correo de confirmación</button>
+    <p class="text-[11px] opacity-70 mt-3">Al continuar aceptas los <a class="underline" href="terminos.html">Términos de uso</a> y la <a class="underline" href="privacidad.html">Política de privacidad</a>.</p><p id="msg" class="text-sm mt-4 min-h-[1.25rem]"></p><button id="resend" class="hidden text-xs text-teal-700 dark:text-teal-400 underline">¿No llegó? Reenviar correo de confirmación</button>
    </div>
    <p class="text-xs text-center mt-4 opacity-70">¿Quieres más? <a href="planes.html" class="text-violet-600 font-semibold">Conoce MapMarket Plus ⭐</a></p>
   </div>
@@ -44,7 +44,7 @@ function setMode(t){mode=t;document.querySelectorAll('.tab').forEach(b=>b.classN
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setMode(b.dataset.t));setMode(mode);
 const say=(t,ok)=>{$('msg').textContent=t;$('msg').className='text-sm mt-4 '+(ok?'text-emerald-600':'text-red-600')};
 $('resend').onclick=async()=>{try{say(await Auth.resend($('email').value.trim(),'signup'),true)}catch(x){say(x.message)}};
-const done=r=>{if(r!=='ok'&&/correo/i.test(r))$('resend').classList.remove('hidden');if(r==='ok'){say('¡Listo! Volviendo al mapa…',true);setTimeout(()=>location.href=new URLSearchParams(location.search).get('next')||GH_CONFIG.redirectTras,700)}else say(r,true)};
+const done=r=>{if(r!=='ok'&&/correo/i.test(r))$('resend').classList.remove('hidden');if(r==='ok'){say('¡Listo! Volviendo al mapa…',true);setTimeout(()=>location.href=Auth.safeNext(new URLSearchParams(location.search).get('next'),GH_CONFIG.redirectTras),700)}else say(r,true)};
 $('f').onsubmit=async e=>{e.preventDefault();const em=$('email').value.trim(),pw=$('pw').value;localStorage.setItem('mm_ultimo_email',em);if(pw.length<6)return say('La contraseña debe tener al menos 6 caracteres.');
  try{done(mode==='up'?await Auth.signUp(em,pw,$('nombre').value.trim()):await Auth.signIn(em,pw))}catch(x){const m=x.message||'Error';if(/not confirmed/i.test(m)){say('Tu correo aún no está confirmado. Revisa tu bandeja (y Spam) o reenvía el correo.');$('resend').classList.remove('hidden')}else say(/Invalid login/i.test(m)?'Correo o contraseña incorrectos.':m)}};
 $('magic').onclick=async()=>{const em=$('email').value.trim();localStorage.setItem('mm_ultimo_email',em);if(!em)return say('Escribe tu correo primero.');try{const r=await Auth.magicLink(em);Auth.demo?done('ok'):say(r,true)}catch(x){say(x.message)}};

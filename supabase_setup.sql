@@ -543,3 +543,98 @@ END $$;
 
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v4 (mensajes + votos) listo ✅' AS resultado;
+
+-- =====================================================================
+-- v5 · Retiro de contenido + límites anti-abuso para inserciones anónimas. Idempotente.
+-- =====================================================================
+-- Huella del solicitante: usuario o hash (no reversible) de la IP que reporta el gateway de Supabase.
+CREATE OR REPLACE FUNCTION public.origen_hash() RETURNS TEXT
+LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT COALESCE(auth.uid()::text, 'ip:' || md5(COALESCE(
+    split_part(COALESCE(current_setting('request.headers', true)::json->>'x-forwarded-for', ''), ',', 1),
+    current_setting('request.headers', true)::json->>'cf-connecting-ip', 'desconocido') || ':mapmarket'));
+$$;
+
+CREATE TABLE IF NOT EXISTS public.retiros (
+  id BIGSERIAL PRIMARY KEY,
+  listing_ref TEXT NOT NULL CHECK (char_length(listing_ref) BETWEEN 1 AND 300),
+  nombre TEXT NOT NULL CHECK (char_length(nombre) BETWEEN 1 AND 120),
+  email TEXT NOT NULL CHECK (char_length(email) <= 200 AND email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'),
+  relacion TEXT NOT NULL CHECK (relacion IN ('propietario','anunciante','autor_fotos','portal','otro')),
+  motivo TEXT NOT NULL CHECK (char_length(motivo) BETWEEN 1 AND 1500),
+  estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','retirado','rechazado','corregido')),
+  origen TEXT,
+  user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.reportes ADD COLUMN IF NOT EXISTS origen TEXT;
+ALTER TABLE public.eventos  ADD COLUMN IF NOT EXISTS origen TEXT;
+CREATE INDEX IF NOT EXISTS reportes_origen_idx ON public.reportes (origen, created_at);
+CREATE INDEX IF NOT EXISTS eventos_origen_idx  ON public.eventos (origen, created_at);
+CREATE INDEX IF NOT EXISTS retiros_origen_idx  ON public.retiros (origen, created_at);
+DO $$ BEGIN
+  ALTER TABLE public.reportes ADD CONSTRAINT reportes_prop_len CHECK (char_length(property_id) <= 64);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE OR REPLACE FUNCTION public.limite_anon() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE o TEXT := public.origen_hash(); n INT;
+BEGIN
+  NEW.origen := o; NEW.created_at := now();
+  IF TG_TABLE_NAME = 'eventos' THEN
+    NEW.user_id := auth.uid();
+    -- 1 vista/contacto por anuncio y origen cada hora (los repetidos se descartan en silencio)
+    IF EXISTS (SELECT 1 FROM eventos WHERE origen = o AND property_id = NEW.property_id AND tipo = NEW.tipo AND created_at > now() - interval '1 hour') THEN RETURN NULL; END IF;
+    SELECT count(*) INTO n FROM eventos WHERE origen = o AND created_at > now() - interval '1 day';
+    IF n >= 400 THEN RETURN NULL; END IF;
+  ELSIF TG_TABLE_NAME = 'reportes' THEN
+    NEW.user_id := auth.uid(); NEW.estado := 'nuevo';
+    SELECT count(*) INTO n FROM reportes WHERE origen = o AND created_at > now() - interval '1 day';
+    IF n >= 15 THEN RAISE EXCEPTION 'Demasiados reportes hoy. Inténtalo mañana.'; END IF;
+    IF EXISTS (SELECT 1 FROM reportes WHERE origen = o AND property_id = NEW.property_id AND created_at > now() - interval '1 day') THEN RAISE EXCEPTION 'Ya reportaste este anuncio hoy. ¡Gracias!'; END IF;
+  ELSIF TG_TABLE_NAME = 'retiros' THEN
+    NEW.user_id := auth.uid(); NEW.estado := 'pendiente';
+    SELECT count(*) INTO n FROM retiros WHERE origen = o AND created_at > now() - interval '1 day';
+    IF n >= 5 THEN RAISE EXCEPTION 'Demasiadas solicitudes hoy. Escríbenos a pcalifax@gmail.com.'; END IF;
+    IF (SELECT count(*) FROM retiros WHERE created_at > now() - interval '1 hour') >= 100 THEN RAISE EXCEPTION 'Demasiadas solicitudes en este momento. Inténtalo más tarde.'; END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS limite_anon_trg ON public.eventos;
+CREATE TRIGGER limite_anon_trg BEFORE INSERT ON public.eventos FOR EACH ROW EXECUTE FUNCTION public.limite_anon();
+DROP TRIGGER IF EXISTS limite_anon_trg ON public.reportes;
+CREATE TRIGGER limite_anon_trg BEFORE INSERT ON public.reportes FOR EACH ROW EXECUTE FUNCTION public.limite_anon();
+DROP TRIGGER IF EXISTS limite_anon_trg ON public.retiros;
+CREATE TRIGGER limite_anon_trg BEFORE INSERT ON public.retiros FOR EACH ROW EXECUTE FUNCTION public.limite_anon();
+-- Calificaciones: ya es 1 por usuario y agente (PK agente,user_id); además máx. 30 por día
+CREATE OR REPLACE FUNCTION public.limite_calif() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF (SELECT count(*) FROM calificaciones_agente WHERE user_id = auth.uid() AND created_at > now() - interval '1 day') >= 30 THEN RAISE EXCEPTION 'Límite diario de calificaciones.'; END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS limite_calif_trg ON public.calificaciones_agente;
+CREATE TRIGGER limite_calif_trg BEFORE INSERT ON public.calificaciones_agente FOR EACH ROW EXECUTE FUNCTION public.limite_calif();
+
+ALTER TABLE public.retiros ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.retiros FROM anon, authenticated;
+GRANT INSERT (listing_ref, nombre, email, relacion, motivo) ON public.retiros TO anon, authenticated;
+GRANT USAGE ON SEQUENCE public.retiros_id_seq TO anon, authenticated;
+DROP POLICY IF EXISTS "solicitar retiro" ON public.retiros;
+CREATE POLICY "solicitar retiro" ON public.retiros FOR INSERT TO anon, authenticated WITH CHECK (true);
+-- Admin: ver y gestionar reportes / retiros
+CREATE OR REPLACE FUNCTION public.es_admin() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND rol = 'admin');
+$$;
+GRANT EXECUTE ON FUNCTION public.es_admin() TO authenticated;
+GRANT SELECT, UPDATE (estado) ON public.retiros, public.reportes TO authenticated;
+DROP POLICY IF EXISTS "admin retiros" ON public.retiros;
+CREATE POLICY "admin retiros" ON public.retiros FOR SELECT TO authenticated USING (public.es_admin());
+DROP POLICY IF EXISTS "admin retiros upd" ON public.retiros;
+CREATE POLICY "admin retiros upd" ON public.retiros FOR UPDATE TO authenticated USING (public.es_admin()) WITH CHECK (public.es_admin());
+DROP POLICY IF EXISTS "admin reportes" ON public.reportes;
+CREATE POLICY "admin reportes" ON public.reportes FOR SELECT TO authenticated USING (public.es_admin());
+DROP POLICY IF EXISTS "admin reportes upd" ON public.reportes;
+CREATE POLICY "admin reportes upd" ON public.reportes FOR UPDATE TO authenticated USING (public.es_admin()) WITH CHECK (public.es_admin());
+
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v5 (retiros + límites) listo ✅' AS resultado;

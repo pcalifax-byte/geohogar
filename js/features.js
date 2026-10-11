@@ -4,7 +4,7 @@
   const $ = i => document.getElementById(i), E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const LS = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }, SS = (k, v) => localStorage.setItem(k, JSON.stringify(v));
   const BASE = (window.GH_CONFIG && GH_CONFIG.siteUrl) || new URL('./', location.href).href;
-  const fmt = n => Math.round(n).toLocaleString('es-CR'), crc = p => p.price ? (p.currency === 'CRC' ? p.price : p.price * CONFIG.USD_CRC) : null;
+  const fmt = n => Math.round(n).toLocaleString('es-CR'), crc = p => p.price && p.precio_flag !== 'dudoso' ? (p.currency === 'CRC' ? p.price : p.price * CONFIG.USD_CRC) : null;
   const med = a => { a = a.filter(x => x > 0).sort((x, y) => x - y); return a.length ? a[a.length >> 1] : null };
   const M = v => v == null ? '—' : '₡' + (v >= 1e6 ? (v / 1e6).toFixed(v >= 1e8 ? 0 : 1) + 'M' : fmt(v));
 
@@ -326,6 +326,7 @@
         const g = document.createElement('a'); g.href = 'guias.html'; g.className = 'px-2 py-1 rounded-full border dark:border-slate-600'; g.textContent = '📚 Guías'; bar.insertBefore(g, $('bPub'));
       }
       MapController.map.on('click', e => { if (!Zone.on) return; const pv = Zone.provAt(e.latlng.lat, e.latlng.lng); pv ? Zone.show(pv) : Feat.toast('Toca dentro de una provincia') });
+      try { MapController.map.attributionControl.addAttribution('<a href="privacidad.html">Privacidad</a> · <a href="terminos.html">Términos</a> · <a href="terminos.html#retiro">Retiro de contenido</a>') } catch (e) {}
       legend(); Cmp.bar();
       Dest.load().then(() => Dest.set.size && App.refresh());
       // enlace profundo ?p=<id>
