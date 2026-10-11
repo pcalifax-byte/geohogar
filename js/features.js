@@ -46,7 +46,8 @@
     set: new Set(LS('mm_destacadas', []).map(String)),
     async load() { const c = await DB.c(); if (c) { const { data, error } = await c.from('destacadas').select('property_id').gt('hasta', new Date().toISOString()); if (!error && data) data.forEach(r => this.set.add(String(r.property_id))) } },
     async toggle(p) {
-      if (!Plus.plus) return Plus.upsell('Destacar propiedades (Modo Agente)');
+      if (!(window.Perm ? Perm.can('destacar', Plus.user) : Plus.plus)) return Plus.upsell('Destacados: disponibles en el plan Pro');
+      if (Plus.user && Plus.user.rol !== 'admin' && !(String(p.id).startsWith('u-') && p.owner_id === Plus.user.id)) return Feat.toast('Solo puedes destacar tus propios anuncios publicados en MapMarket.');
       const id = String(p.id), c = await DB.c(), uid = await DB.uid(), on = !this.set.has(id);
       if (c && uid) { const r = on ? await c.from('destacadas').upsert({ property_id: id, user_id: uid, hasta: new Date(Date.now() + 30 * 864e5).toISOString() }) : await c.from('destacadas').delete().eq('property_id', id).eq('user_id', uid); if (r.error) console.warn(r.error.message) }
       on ? this.set.add(id) : this.set.delete(id); SS('mm_destacadas', [...this.set]); App.refresh(); return on;

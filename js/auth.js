@@ -30,14 +30,14 @@
     onChange(f) { listeners.push(f) },
     async user() {
       if (DEMO) { const s = j(K.s, null); if (!s) return null; const t = j(K.tr, {})[s.email]; const ends = t ? new Date(t) : null;
-        const pago = s.plan === 'plus' && (!s.plus_until || new Date(s.plus_until) > new Date()); const trial = !!ends && ends > new Date();
-        return { ...s, demo: true, trial_used: !!t, trial_ends_at: t || null, trial_activo: trial && !pago, pagado: pago, plan: pago || trial ? 'plus' : 'gratis' } }
+        const pago = (s.plan === 'plus' || s.plan === 'pro') && (!s.plus_until || new Date(s.plus_until) > new Date()); const trial = !!ends && ends > new Date();
+        return { ...s, demo: true, trial_used: !!t, trial_ends_at: t || null, trial_activo: trial && !pago, pagado: pago, plan: pago || trial ? 'plus' : 'gratis', nivel: pago && s.plan === 'pro' ? 'pro' : pago || trial ? 'plus' : 'free' } }
       const c = await sbClient(); const { data } = await c.auth.getUser(); const u = data.user; if (!u) return null;
       let { data: p, error: pe } = await c.from('profiles').select('plan,plus_until,nombre,trial_used,trial_ends_at,rol').eq('id', u.id).maybeSingle();
       if (pe) ({ data: p } = await c.from('profiles').select('plan,plus_until,nombre,trial_used,trial_ends_at').eq('id', u.id).maybeSingle());
-      const pago = !!p && p.plan === 'plus' && (!p.plus_until || new Date(p.plus_until) > new Date());
+      const pago = !!p && (p.plan === 'plus' || p.plan === 'pro') && (!p.plus_until || new Date(p.plus_until) > new Date());
       const trial = !!p && !!p.trial_ends_at && new Date(p.trial_ends_at) > new Date();
-      return { id: u.id, email: u.email, nombre: (p && p.nombre) || u.email.split('@')[0], plan: pago || trial ? 'plus' : 'gratis', pagado: pago, trial_activo: trial && !pago, trial_used: !!(p && p.trial_used), trial_ends_at: p && p.trial_ends_at, plus_until: p && p.plus_until, rol: p && p.rol };
+      return { id: u.id, email: u.email, nombre: (p && p.nombre) || u.email.split('@')[0], plan: pago || trial ? 'plus' : 'gratis', nivel: pago && p.plan === 'pro' ? 'pro' : pago || trial ? 'plus' : 'free', pagado: pago, trial_activo: trial && !pago, trial_used: !!(p && p.trial_used), trial_ends_at: p && p.trial_ends_at, plus_until: p && p.plus_until, rol: p && p.rol };
     },
     async signUp(email, password, nombre) {
       if (DEMO) { const us = j(K.u, {}); if (us[email]) throw new Error('Ya existe una cuenta demo con ese correo.'); us[email] = { password, nombre }; localStorage.setItem(K.u, JSON.stringify(us)); return this._demoLogin(email) }
@@ -70,6 +70,8 @@
     async updatePassword(pw) { if (DEMO) return 'Modo demo.'; const c = await sbClient(); const { error } = await c.auth.updateUser({ password: pw }); if (error) throw error; return 'Contraseña actualizada.' },
     async signOut() { if (DEMO) localStorage.removeItem(K.s); else await (await sbClient()).auth.signOut(); emit() },
     _demoLogin(email) { const us = j(K.u, {}); const prev = j(K.s, {}) || {}; localStorage.setItem(K.s, JSON.stringify({ id: 'demo-' + email, email, nombre: (us[email] && us[email].nombre) || email.split('@')[0], plan: prev.email === email ? prev.plan || 'gratis' : 'gratis' })); emit(); return 'ok' },
+    // Plan elegido antes de registrarse (login.html): tras confirmar/entrar, se continúa en planes.html
+    planPendiente() { const p = localStorage.getItem('mm_plan_elegido'); localStorage.removeItem('mm_plan_elegido'); return ['mensual', 'anual', 'pro', 'prueba'].includes(p) ? 'planes.html?elegir=' + p : null },
     async isPlus() { const u = await this.user(); return !!u && u.plan === 'plus' },
     async startTrial() {
       const u = await this.user(); if (!u) { const e = new Error('Inicia sesión para empezar la prueba.'); e.code = 'LOGIN'; throw e }
@@ -81,10 +83,10 @@
     pruebaTexto(u) { const h = this.horasPrueba(u); return h > 24 ? `Te quedan ${h} h de prueba (${Math.floor(h / 24)} d ${h % 24} h)` : `Te quedan ${h} h de prueba` },
     async subscribe(periodo) {
       const u = await this.user(); if (!u) { location.href = 'login.html?next=planes.html#registro'; return 'login' }
-      if (DEMO) { const s = j(K.s, {}); s.plan = 'plus'; s.plus_until = new Date(Date.now() + (periodo === 'anual' ? 365 : 30) * 864e5).toISOString(); localStorage.setItem(K.s, JSON.stringify(s)); emit(); return 'demo' }
+      if (DEMO) { const s = j(K.s, {}); s.plan = periodo === 'pro' ? 'pro' : 'plus'; s.plus_until = new Date(Date.now() + (periodo === 'anual' ? 365 : 30) * 864e5).toISOString(); localStorage.setItem(K.s, JSON.stringify(s)); emit(); return 'demo' }
       // ONVO Pay: la Edge Function crea la sesión de Checkout con la llave secreta y devuelve la URL
       const c = await sbClient(); const fn = (C.onvo && C.onvo.checkoutFunction) || 'onvo-checkout';
-      const { data, error } = await c.functions.invoke(fn, { body: { periodo: periodo === 'anual' ? 'anual' : 'mensual' } });
+      const { data, error } = await c.functions.invoke(fn, { body: { periodo: periodo === 'anual' ? 'anual' : periodo === 'pro' ? 'pro' : 'mensual' } });
       if (error || !data || !data.url) throw new Error('El pago con ONVO aún no está disponible (falta desplegar la función de cobro). Inténtalo más tarde.');
       location.href = data.url; return 'redirect';
     },

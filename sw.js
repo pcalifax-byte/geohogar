@@ -2,7 +2,7 @@
    - Nunca intercepta Supabase, Tilopay, WhatsApp ni peticiones que no sean GET.
    - HTML y data/*.json: red primero (datos frescos), caché solo si no hay conexión.
    - Estáticos propios y CDNs (Tailwind, Leaflet, teselas OSM): caché con revalidación. */
-const V = 'mm-v9', SHELL = ['./', 'index.html', 'login.html', 'planes.html', 'cuenta.html', 'confirmar.html', 'guias.html', 'mensajes.html', 'privacidad.html', 'terminos.html', 'offline.html', 'eliminar-cuenta.html', 'admin.html', '404.html', 'js/publicar.js', 'js/extras.js', 'js/admin-capa.js', 'js/cerca.js', 'js/permisos.js', 'js/admin-gestion.js', 'js/refrescar.js', 'js/features.js', 'js/social.js', 'js/config.js', 'js/auth.js', 'manifest.webmanifest', 'icons/icon-192.png'];
+const V = 'mm-v10', SHELL = ['./', 'index.html', 'login.html', 'planes.html', 'cuenta.html', 'confirmar.html', 'guias.html', 'mensajes.html', 'privacidad.html', 'terminos.html', 'offline.html', 'eliminar-cuenta.html', 'admin.html', '404.html', 'js/publicar.js', 'js/extras.js', 'js/admin-capa.js', 'js/cerca.js', 'js/permisos.js', 'js/admin-gestion.js', 'js/refrescar.js', 'js/planes-app.js', 'js/features.js', 'js/social.js', 'js/config.js', 'js/auth.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).catch(() => {})); self.skipWaiting() });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x)))).then(() => self.clients.claim())) });
 const NO = /supabase\.co|onvopay|tilopay|wa\.me|whatsapp|nominatim|overpass|api\./i;

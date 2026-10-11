@@ -29,12 +29,12 @@ async function procesar(ev: any) {
   if (type === "checkout-session.succeeded") {
     const s = await onvo("GET", `/checkout/sessions/${d.id}`);            // confirmar contra la API
     if (s.paymentStatus !== "paid" || s.metadata?.app !== "mapmarket") return;
-    const plan = s.metadata?.plan === "anual" ? "anual" : "mensual";
+    const plan = s.metadata?.plan === "anual" ? "anual" : s.metadata?.plan === "pro" ? "pro" : "mensual";
     const p = await perfilPor({ id: s.metadata?.supabase_user_id, email: s.metadata?.email ?? s.customerEmail });
     if (!p) return console.warn("perfil no encontrado", s.id);
     const base = p.plus_until && new Date(p.plus_until) > new Date() ? new Date(p.plus_until) : new Date();
     await db.from("profiles").update({
-      plan: "plus", plus_until: addPeriod(base, plan).toISOString(), onvo_plan: plan, plus_origen: "onvo",
+      plan: plan === "pro" ? "pro" : "plus", plus_until: addPeriod(base, plan).toISOString(), onvo_plan: plan, plus_origen: "onvo",
       onvo_customer_id: s.customerId ?? s.customer?.id ?? null, onvo_subscription_id: s.subscriptionId ?? s.subscription?.id ?? null, suscripcion_cancelada_at: null,
     }).eq("id", p.id);
   } else if (type === "subscription.renewal.succeeded") {
@@ -43,14 +43,14 @@ async function procesar(ev: any) {
     if (!p) return console.warn("perfil no encontrado para renovación", subId);
     if (subId) { const sub = await onvo("GET", `/subscriptions/${subId}`); if (sub.status && !["active", "trialing"].includes(sub.status)) return; }
     const base = p.plus_until && new Date(p.plus_until) > new Date() ? new Date(p.plus_until) : new Date();
-    await db.from("profiles").update({ plan: "plus", plus_until: addPeriod(base, p.onvo_plan ?? "mensual").toISOString() }).eq("id", p.id);
+    await db.from("profiles").update({ plan: p.onvo_plan === "pro" ? "pro" : "plus", plus_until: addPeriod(base, p.onvo_plan ?? "mensual").toISOString() }).eq("id", p.id);
   } else if (type === "subscription.renewal.failed") {
     const p = await perfilPor({ sub: d.subscriptionId, cus: d.customerId, email: d.customer?.email });
     if (!p) return;
     if (p.plus_origen === "admin") return; // Plus otorgado por un admin: ONVO no lo revoca
     // past_due: ONVO reintenta; se conserva Plus hasta plus_until (incluye días de gracia). Cancelado / impago: vuelve a Gratis.
     if (["canceled", "cancelled", "unpaid", "incomplete_expired"].includes(String(d.subscriptionStatus))) {
-      await db.from("profiles").update({ plan: "gratis", plus_until: new Date().toISOString() }).eq("id", p.id);
+      await db.from("profiles").update({ plan: "free", plus_until: new Date().toISOString() }).eq("id", p.id);
     }
   }
   // payment-intent.* quedan registrados en pagos_eventos para auditoría.

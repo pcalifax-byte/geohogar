@@ -10,7 +10,7 @@
 <script>
 const $=i=>document.getElementById(i),Q=new URLSearchParams(location.search),H=new URLSearchParams(location.hash.slice(1));
 const tipo=Q.get('tipo')||(H.get('type')==='recovery'?'recovery':H.get('type')==='magiclink'?'magic':'signup'),next=Auth.safeNext(Q.get('next'));
-const ok=(t,d,go)=>{$('ic').textContent='✅';$('ic').classList.remove('animate-pulse');$('t').textContent=t;$('d').textContent=d;if(go)setTimeout(()=>location.replace(go),1800)};
+const ok=(t,d,go)=>{$('ic').textContent='✅';$('ic').classList.remove('animate-pulse');$('t').textContent=t;$('d').textContent=d;if(go)setTimeout(()=>location.replace(Auth.planPendiente()||go),1800)};
 const fail=(t,d)=>{$('ic').textContent='⚠️';$('ic').classList.remove('animate-pulse');$('t').textContent=t;$('d').textContent=d;$('re').classList.remove('hidden');$('em').value=localStorage.getItem('mm_ultimo_email')||''};
 const MSG={otp_expired:'El enlace venció o ya fue usado (los enlaces sirven una sola vez y duran poco). Pide uno nuevo abajo.',access_denied:'El enlace no es válido o ya fue usado. Pide uno nuevo abajo.'};
 $('rb').onclick=async()=>{const e=$('em').value.trim();if(!e){$('rm').textContent='Escribe tu correo.';return}

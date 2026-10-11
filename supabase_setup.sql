@@ -1102,3 +1102,141 @@ DROP TRIGGER IF EXISTS anuncios_baneo_trg ON public.anuncios;
 CREATE TRIGGER anuncios_baneo_trg BEFORE INSERT OR UPDATE ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_baneo();
 NOTIFY pgrst, 'reload schema';
 SELECT 'MapMarket v9 (usuarios, permisos, anuncios admin) listo ✅' AS resultado;
+
+-- =====================================================================
+-- v10 · Planes Gratis / Plus / Pro, límites de anuncios activos y destacados Pro
+-- =====================================================================
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
+UPDATE public.profiles SET plan = 'free' WHERE plan = 'gratis';
+ALTER TABLE public.profiles ALTER COLUMN plan SET DEFAULT 'free';
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_plan_check CHECK (plan IN ('free','plus','pro','gratis'));  -- 'gratis' = valor antiguo, equivale a free
+
+CREATE OR REPLACE FUNCTION public.is_pro(uid UUID) RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = uid AND plan = 'pro' AND (plus_until IS NULL OR plus_until > now()));
+$$;
+CREATE OR REPLACE FUNCTION public.is_plus(uid UUID) RETURNS BOOLEAN       -- Plus o Pro (Pro incluye todo Plus) o prueba
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = uid AND (
+    (plan IN ('plus','pro') AND (plus_until IS NULL OR plus_until > now()))
+    OR (trial_ends_at IS NOT NULL AND trial_ends_at > now())));
+$$;
+CREATE OR REPLACE FUNCTION public.has_pro() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$ SELECT public.is_pro(auth.uid()); $$;
+REVOKE ALL ON FUNCTION public.is_pro(UUID), public.has_pro() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_pro(UUID), public.has_pro() TO authenticated;
+
+ALTER TABLE public.permisos DROP CONSTRAINT IF EXISTS permisos_perfil_check;
+ALTER TABLE public.permisos ADD CONSTRAINT permisos_perfil_check CHECK (perfil IN ('gratis','plus','pro','agente','admin'));
+-- Pro hereda la configuración de Plus
+INSERT INTO public.permisos (perfil, feature, activo, limite, bloqueado)
+  SELECT 'pro', feature, activo, limite, bloqueado FROM public.permisos WHERE perfil = 'plus' ON CONFLICT DO NOTHING;
+INSERT INTO public.permisos (perfil, feature, activo, limite, bloqueado) VALUES
+ ('gratis','anuncios_activos',true,1,false),('plus','anuncios_activos',true,3,false),('pro','anuncios_activos',true,5,false),('agente','anuncios_activos',true,1,false),('admin','anuncios_activos',true,NULL,false)
+ON CONFLICT DO NOTHING;
+-- Destacar: solo Pro (y admin)
+UPDATE public.permisos SET activo = (perfil IN ('pro','admin')), updated_at = now() WHERE feature = 'destacar' AND NOT EXISTS (SELECT 1 FROM public.admin_auditoria WHERE accion = 'permiso' AND detalle->'antes'->>'feature' = 'destacar');
+
+CREATE OR REPLACE FUNCTION public.perfiles_de(uid UUID) RETURNS TEXT[]
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT ARRAY[CASE WHEN public.is_pro(uid) THEN 'pro' WHEN public.is_plus(uid) THEN 'plus' ELSE 'gratis' END]
+         || CASE WHEN p.rol IN ('agente','admin') THEN ARRAY[p.rol] ELSE ARRAY[]::TEXT[] END
+  FROM public.profiles p WHERE p.id = uid;
+$$;
+
+-- Límite de anuncios activos (pendiente + aprobado + pausado) aplicado en el servidor
+CREATE OR REPLACE FUNCTION public.anuncios_limite() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE lim INT; n INT;
+BEGIN
+  IF public.es_admin() THEN RETURN NEW; END IF;
+  IF NEW.estado NOT IN ('pendiente','aprobado','pausado') THEN RETURN NEW; END IF;
+  IF TG_OP = 'UPDATE' AND OLD.estado IN ('pendiente','aprobado','pausado') THEN RETURN NEW; END IF;
+  lim := public.limite_de('anuncios_activos');
+  IF lim IS NULL THEN RETURN NEW; END IF;
+  SELECT count(*) INTO n FROM anuncios WHERE owner_id = NEW.owner_id AND estado IN ('pendiente','aprobado','pausado') AND id <> NEW.id;
+  IF n >= GREATEST(lim,0) THEN
+    RAISE EXCEPTION 'LIMITE_ANUNCIOS: Tu plan permite % anuncio(s) activo(s). Mejora tu plan en planes.html o marca alguno como vendido/retirado.', GREATEST(lim,0);
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS anuncios_limite_trg ON public.anuncios;
+CREATE TRIGGER anuncios_limite_trg BEFORE INSERT OR UPDATE OF estado ON public.anuncios FOR EACH ROW EXECUTE FUNCTION public.anuncios_limite();
+
+-- Destacados: permiso 'destacar' (Pro/admin); Pro solo sus propios anuncios
+DROP POLICY IF EXISTS "destacar agente plus" ON public.destacadas;
+CREATE POLICY "destacar agente plus" ON public.destacadas FOR INSERT TO authenticated WITH CHECK (
+  user_id = auth.uid() AND public.permitido('destacar') AND hasta <= now() + interval '31 days'
+  AND (public.es_admin() OR EXISTS (SELECT 1 FROM public.anuncios a WHERE 'u-'||a.id = property_id AND a.owner_id = auth.uid()))
+  AND (public.es_admin() OR (SELECT count(*) FROM public.destacadas d WHERE d.user_id = auth.uid() AND d.hasta > now()) < 5));
+DROP POLICY IF EXISTS "destacar editar" ON public.destacadas;
+CREATE POLICY "destacar editar" ON public.destacadas FOR UPDATE TO authenticated USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid() AND public.permitido('destacar') AND hasta <= now() + interval '31 days');
+
+-- Admin: otorgar Plus o Pro con duración
+CREATE OR REPLACE FUNCTION public.admin_plan(uid UUID, nivel TEXT, hasta TIMESTAMPTZ, nota TEXT DEFAULT NULL) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE antes JSONB;
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  IF nivel NOT IN ('free','plus','pro') THEN RAISE EXCEPTION 'Plan inválido'; END IF;
+  SELECT jsonb_build_object('plan',plan,'plus_until',plus_until,'plus_origen',plus_origen) INTO antes FROM profiles WHERE id = uid;
+  IF antes IS NULL THEN RAISE EXCEPTION 'Usuario no encontrado'; END IF;
+  IF nivel = 'free' OR hasta IS NULL THEN
+    UPDATE profiles SET plan='free', plus_until=now(), plus_origen=NULL, plus_nota=nota, trial_ends_at=LEAST(trial_ends_at, now()) WHERE id = uid;
+  ELSE
+    IF hasta <= now() THEN RAISE EXCEPTION 'La fecha debe ser futura'; END IF;
+    UPDATE profiles SET plan=nivel, plus_until=hasta, plus_origen='admin', plus_nota=nota WHERE id = uid;
+  END IF;
+  INSERT INTO admin_auditoria(admin_id, objetivo_id, accion, detalle, nota)
+  VALUES (auth.uid(), uid, CASE WHEN nivel='free' OR hasta IS NULL THEN 'plan_revocar' ELSE 'plan_otorgar' END, jsonb_build_object('antes',antes,'nivel',nivel,'hasta',hasta), nota);
+END $$;
+CREATE OR REPLACE FUNCTION public.admin_plus(uid UUID, hasta TIMESTAMPTZ, nota TEXT DEFAULT NULL) RETURNS VOID
+LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$ SELECT public.admin_plan(uid, CASE WHEN hasta IS NULL THEN 'free' ELSE 'plus' END, hasta, nota); $$;
+REVOKE ALL ON FUNCTION public.admin_plan(UUID,TEXT,TIMESTAMPTZ,TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_plan(UUID,TEXT,TIMESTAMPTZ,TEXT) TO authenticated;
+
+-- admin_usuarios: exponer el plan real
+DROP FUNCTION IF EXISTS public.admin_usuarios(TEXT, TEXT, TEXT, INT, INT);
+CREATE FUNCTION public.admin_usuarios(q TEXT DEFAULT '', filtro TEXT DEFAULT '', orden TEXT DEFAULT 'created_at', lim INT DEFAULT 50, desde INT DEFAULT 0)
+RETURNS TABLE (id UUID, email TEXT, nombre TEXT, rol TEXT, plan TEXT, plus_activo BOOLEAN, plus_until TIMESTAMPTZ, plus_origen TEXT,
+  trial_ends_at TIMESTAMPTZ, trial_used BOOLEAN, created_at TIMESTAMPTZ, last_sign_in TIMESTAMPTZ,
+  favoritos BIGINT, publicaciones BIGINT, mensajes BIGINT, total BIGINT)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+BEGIN
+  IF NOT public.es_admin() THEN RAISE EXCEPTION 'permiso denegado' USING ERRCODE = '42501'; END IF;
+  RETURN QUERY
+  WITH b AS (
+    SELECT u.id, u.email::TEXT AS email, p.nombre, COALESCE(p.rol,'usuario') AS rol,
+      CASE WHEN public.is_pro(u.id) THEN 'pro' WHEN public.is_plus(u.id) THEN 'plus' ELSE 'free' END AS plan, public.is_plus(u.id) AS plus_activo,
+      p.plus_until, p.plus_origen, p.trial_ends_at, COALESCE(p.trial_used,false) AS trial_used, u.created_at, u.last_sign_in_at AS last_sign_in,
+      (SELECT count(*) FROM public.favoritos f WHERE f.user_id = u.id) AS favoritos,
+      (SELECT count(*) FROM public.anuncios a WHERE a.owner_id = u.id) AS publicaciones,
+      (SELECT count(*) FROM public.mensajes m WHERE m.sender_id = u.id) AS mensajes
+    FROM auth.users u LEFT JOIN public.profiles p ON p.id = u.id
+    WHERE (COALESCE(q,'') = '' OR u.email ILIKE '%'||q||'%' OR p.nombre ILIKE '%'||q||'%')
+  ), f AS (
+    SELECT * FROM b WHERE COALESCE(filtro,'') = '' OR (filtro='plus' AND b.plan='plus') OR (filtro='pro' AND b.plan='pro') OR (filtro='gratis' AND b.plan='free')
+      OR (filtro='prueba' AND b.trial_ends_at > now()) OR (filtro IN ('usuario','agente','admin') AND b.rol = filtro) OR (filtro='plus_admin' AND b.plus_origen='admin')
+  )
+  SELECT f.*, count(*) OVER () FROM f
+  ORDER BY CASE WHEN orden='email' THEN f.email END ASC,
+           CASE WHEN orden='last_sign_in' THEN f.last_sign_in END DESC NULLS LAST,
+           CASE WHEN orden='plus_until' THEN f.plus_until END DESC NULLS LAST,
+           CASE WHEN orden='mensajes' THEN f.mensajes END DESC,
+           f.created_at DESC
+  LIMIT LEAST(GREATEST(lim,1),200) OFFSET GREATEST(desde,0);
+END $$;
+REVOKE ALL ON FUNCTION public.admin_usuarios(TEXT,TEXT,TEXT,INT,INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_usuarios(TEXT,TEXT,TEXT,INT,INT) TO authenticated;
+
+-- valores nuevos en funciones existentes
+CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.profiles (id, nombre, email, plan)
+  VALUES (NEW.id, NEW.raw_user_meta_data->>'nombre', lower(NEW.email), 'free')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
+  RETURN NEW;
+END $$;
+NOTIFY pgrst, 'reload schema';
+SELECT 'MapMarket v10 (planes Gratis/Plus/Pro) listo ✅' AS resultado;

@@ -42,7 +42,7 @@
     }
     const n = v => v === '' || v == null ? null : +v;
     const row = { titulo: d.nT.trim().slice(0, 140), tipo: d.nY, provincia: PROV.includes(d.nV) ? d.nV : 'San José', zona: (d.nL || '').slice(0, 120) || null, precio: +d.nP, moneda: d.nC, habitaciones: n(d.nB), banos: n(d.nBa), area: n(d.nA), descripcion: (d.nD || '').slice(0, 2000) || null, amenidades: d.am || [], imagenes: urls, lat: d.lat, lon: d.lon };
-    const { data: ins, error } = await c.from('anuncios').insert(row).select('id').single(); if (error) throw error;
+    const { data: ins, error } = await c.from('anuncios').insert(row).select('id').single(); if (error) { if (/LIMITE_ANUNCIOS/.test(error.message)) { setTimeout(() => Plus.upsell('Más anuncios activos'), 300); throw new Error(error.message.replace(/^.*LIMITE_ANUNCIOS:\s*/, '')) } throw error }
     if (urls.length) { const r = await c.rpc('registrar_imagenes', { anuncio: ins.id, items: urls.map((url, i) => ({ url, ...meta[i] })) }); if (r.error) console.warn('moderación', r.error);
       c.functions.invoke('moderar-imagenes', { body: { anuncio: ins.id } }).catch(() => {}) }
   }

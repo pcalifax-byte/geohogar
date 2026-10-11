@@ -215,9 +215,18 @@
     "premium",
     "mensualidad",
     "anual",
-    "pagar plus"
+    "pagar plus",
+    "pro",
+    "plan pro",
+    "precio pro",
+    "destacados",
+    "destacar",
+    "cuantos anuncios",
+    "limite de anuncios",
+    "anuncios activos",
+    "gratis"
    ],
-   "answer": "MapMarket Plus cuesta ₡3.990 al mes o ₡29.990 al año (ahorras ~37 %). Incluye alertas por zona dibujada y de precio, filtros avanzados de remates, listas y favoritos ilimitados, comparación con la mediana, reportes CSV y destacar anuncios (agentes). Puedes probarlo gratis 2 días sin tarjeta. <a href=\"planes.html\" class=\"underline\">Ver planes</a>"
+   "answer": "Hay 3 planes: <b>Gratis</b> (₡0): buscar en el mapa y 1 anuncio activo. <b>Plus</b> (₡3.990/mes o ₡29.990/año, ahorras ~37 %): 3 anuncios activos, favoritos y búsquedas ilimitados, alertas y filtros avanzados. <b>Pro</b> (₡6.990/mes): 5 anuncios activos y <b>destacados</b> que aparecen primero en el mapa y la lista, además de todo lo de Plus. Compáralos en <a href=\"planes.html\" class=\"underline\">Planes</a>."
   },
   {
    "id": "prueba",
