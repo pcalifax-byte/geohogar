@@ -36,10 +36,10 @@
       const host = card.querySelector('.overflow-y-auto') || card; host.appendChild(box);
       // Contactar: WhatsApp directo del anunciante (si lo hizo público) o chat interno
       if (!mio) try { const c = await Auth.client(); const { data: pp } = await c.from('perfiles_publicos').select('telefono,whatsapp').eq('id', p.owner_id).maybeSingle();
-        const tel = pp && pp.telefono ? String(pp.telefono).replace(/\D/g, '') : ''; const num = tel.length === 8 ? '506' + tel : tel;
+        const tel = p.whatsapp ? String(p.whatsapp).replace(/\D/g, '') : pp && pp.telefono && pp.whatsapp !== false ? String(pp.telefono).replace(/\D/g, '') : ''; const num = tel.length === 8 ? '506' + tel : tel;
         const link = 'https://mapmarketapp.com/index.html?p=' + p.id, msg = (window.MMLang === 'en' ? 'Hi! I am interested in your MapMarket listing: ' : '¡Hola! Me interesa tu anuncio en MapMarket: ') + p.title + ' ' + link;
         card.querySelectorAll('a[href^="https://wa.me"]').forEach(a => {
-          if (num && pp.whatsapp !== false) { a.href = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg); a.target = '_blank'; a.rel = 'noopener' }
+          if (num) { a.href = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg); a.target = '_blank'; a.rel = 'noopener'; a.onclick = e => { if (window.MMAbrirWa) { e.preventDefault(); MMAbrirWa(a.href) } } }
           else { a.removeAttribute('target'); a.href = '#'; a.onclick = e => { e.preventDefault(); const chat = [...card.querySelectorAll('button')].find(b => /mensaje|message/i.test(b.textContent)); chat ? chat.click() : (location.href = 'mensajes.html') }; a.title = T('El anunciante no comparte WhatsApp: escríbele por el chat de MapMarket'); a.innerHTML = '💬 ' + T('Contactar por chat') }
         }) } catch (e) { }
     }
