@@ -1,7 +1,7 @@
 {
  "tbp": {
   "valor": 3.57,
-  "fecha": "2026-10-20",
+  "fecha": "2026-10-21",
   "fuente": "BCCR indicador 423 (Tasa básica pasiva)",
   "verificado": true
  },
@@ -20,7 +20,7 @@
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
    "url": "https://www.baccredomatic.com/es-cr",
-   "intento_verificacion": "2026-10-21",
+   "intento_verificacion": "2026-10-22",
    "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
@@ -36,7 +36,7 @@
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
    "url": "https://www.bancobcr.com",
-   "intento_verificacion": "2026-10-21",
+   "intento_verificacion": "2026-10-22",
    "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
@@ -52,7 +52,7 @@
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
    "url": "https://www.bncr.fi.cr",
-   "intento_verificacion": "2026-10-21",
+   "intento_verificacion": "2026-10-22",
    "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
@@ -70,7 +70,7 @@
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
    "url": "https://www.mucap.fi.cr",
-   "intento_verificacion": "2026-10-21",
+   "intento_verificacion": "2026-10-22",
    "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
@@ -88,7 +88,7 @@
    "notas": "Rango típico 8–10%.",
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
-   "intento_verificacion": "2026-10-21",
+   "intento_verificacion": "2026-10-22",
    "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   },
   {
@@ -103,7 +103,7 @@
    "notas": "Tasa variable, financiamiento ~90%. Sin tasa publicada en el dato aportado: introduce la tasa manualmente.",
    "fuente": "reportado por el usuario, confirmar con el banco",
    "verificado": false,
-   "intento_verificacion": "2026-10-21",
+   "intento_verificacion": "2026-10-22",
    "estado_verificacion": "sin página/patrón configurado: se conserva el dato reportado"
   }
  ]
