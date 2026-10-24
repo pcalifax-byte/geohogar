@@ -1,5 +1,5 @@
 {
- "last_updated": "2026-10-23T03:06:24Z",
+ "last_updated": "2026-10-24T03:03:17Z",
  "fuentes": {
   "propiedades": [
    "encuentra24.com",
@@ -12,15 +12,13 @@
  },
  "ultimo_resumen": {
   "tipo_cambio": {
-   "compra": 453.45,
-   "venta": 457.51,
-   "fecha": "2026-10-22",
+   "compra": 452.44,
+   "venta": 456.32,
+   "fecha": "2026-10-23",
    "fuente": "BCCR (bccr.fi.cr, indicadores 317/318)",
    "cambio": true
   },
-  "tasas_cambiadas": [
-   "TBP"
-  ],
+  "tasas_cambiadas": [],
   "anuncios": null,
   "nuevas": null
  }
