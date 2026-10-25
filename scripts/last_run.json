@@ -1,10 +1,10 @@
 {
- "inicio": "2026-10-24T03:03:17+00:00",
+ "inicio": "2026-10-25T03:03:43+00:00",
  "errores": [],
  "tipo_cambio": {
-  "compra": 452.44,
+  "compra": 450.04,
   "venta": 456.32,
-  "fecha": "2026-10-23",
+  "fecha": "2026-10-24",
   "fuente": "BCCR (bccr.fi.cr, indicadores 317/318)",
   "cambio": true
  },
@@ -24,5 +24,5 @@
   "activa": 40
  },
  "datos_cambiaron": true,
- "fin": "2026-10-24T03:03:20+00:00"
+ "fin": "2026-10-25T03:03:47+00:00"
 }
